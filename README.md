@@ -1,6 +1,6 @@
 
 
-# Development of a Machine Learning Model for Muscle Fatigue Monitoring in the Lateral Vastus Muscle during Static Bicycle Rehabilitation using sEMG: Optimization of Rehabilitation Routines and Prevention of Muscle Injuries
+# Optimized U-Net for Brain Tumor Segmentation
 
 
 ## Resumen 
