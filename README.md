@@ -1,6 +1,6 @@
 
 
-# Optimized U-Net for Brain Tumor Segmentation
+# Proyecto ACSI : Optimized U-Net for Brain Tumor Segmentation
 
 
 ## Resumen 
