@@ -3,55 +3,44 @@
 # Proyecto ACSI : Optimized U-Net for Brain Tumor Segmentation
 
 
-## Resumen 
+## Introducción  
 
-Este estudio propone un sistema en tiempo real de monitoreo de fatiga muscular basado en sensores de electromiografía de superficie (sEMG) y aprendizaje automático para optimizar la rehabilitación y prevenir lesiones musculares por sobreesfuerzo durante ejercicios en bicicleta estática. El sistema se centra específicamente en el músculo vasto lateral por su importante rol en la generación de fuerza durante el pedaleo.
+El avance en el procesamiento de imágenes médicas ha revolucionado el diagnóstico y tratamiento de diversas enfermedades, particularmente en la oncología. La segmentación de tumores cerebrales a partir de imágenes de resonancia magnética (MRI) es una tarea crítica que puede influir directamente en las decisiones clínicas. Sin embargo, la segmentación manual es un proceso que consume mucho tiempo, requiere un alto nivel de expertise y es susceptible a errores humanos. La automatización de este proceso mediante el uso de redes neuronales profundas, como la arquitectura U-Net, ha mostrado un gran potencial para superar estas limitaciones, proporcionando resultados más consistentes y rápidos.
 
-Se desarrolló un modelo de clasificación RandomForest que logró una precisión de 90% en la detección de estados de fatiga y no fatiga muscular durante una prueba incremental de 10 minutos en bicicleta estática. 
+## Problemática 
 
-Los resultados de la prueba estadística de Wilcoxon confirmaron diferencias significativas en las características de la señal EMG antes y después del umbral de detección de fatiga hallado por el modelo, validando su capacidad para identificar correctamente el inicio de la fatiga.
+El principal desafío en la segmentación de tumores cerebrales es la variabilidad en la forma y apariencia de los tumores en diferentes pacientes y modalidades de MRI. Además, la segmentación manual realizada por radiólogos es un proceso tedioso, con una alta variabilidad interobservador e intraobservador, lo que puede llevar a inconsistencias en el diagnóstico y tratamiento. El desarrollo de modelos automáticos de segmentación, que igualen o superen el rendimiento humano, es esencial para mejorar la precisión y reproducibilidad del diagnóstico.
 
-## Motivación
+El artículo "Optimized U-Net for Brain Tumor Segmentation" aborda esta problemática mediante la optimización de una arquitectura U-Net, una red neuronal convolucional ampliamente utilizada en la segmentación de imágenes médicas. Este proyecto tiene como objetivo replicar y validar los resultados presentados en el artículo, utilizando técnicas de aprendizaje profundo para mejorar la segmentación automática de tumores cerebrales.
 
-La falta de monitoreo adecuado de la fatiga muscular durante ejercicios de rehabilitación puede ocasionar sobreesfuerzo, retraso en la recuperación e incluso nuevas lesiones. Por ello, es vital desarrollar sistemas confiables de detección de fatiga en tiempo real para optimizar las rutinas de rehabilitación.
+## Base de datos
 
-La elección de enfocarse en el ejercicio de bicicleta estática se basó en que es un método idóneo de rehabilitación de lesiones de miembros inferiores, al permitir modular la posición para trabajar grupos musculares específicos. Además, involucra la activación de músculos propensos a lesiones como el vasto lateral, crucial en la generación de fuerza durante el pedaleo.
+Para este proyecto, se utiliza la base de datos proporcionada por el desafío BraTS21 (Brain Tumor Segmentation Challenge 2021). Esta base de datos es una de las más grandes y completas disponibles para la segmentación de tumores cerebrales, lo que la convierte en un estándar de facto en la investigación en este campo.
 
-## Metodología
+- Tipos de Imágenes
+Las imágenes en la base de datos BraTS21 son de resonancia magnética (MRI) y cubren cuatro modalidades diferentes:
 
-Se utilizaron electrodos de superficie para adquirir señales EMG del músculo vasto lateral durante una prueba incremental de 10 minutos en bicicleta estática. Las señales fueron preprocesadas con filtrado digital y segmentación.
+T1: Imágenes ponderadas en T1, que proporcionan un contraste claro entre la materia gris y blanca.
+T1Gd: Imágenes T1 con gadolinio, que realza las áreas con alta vascularidad, como los tumores.
+T2: Imágenes ponderadas en T2, que destacan el líquido cerebroespinal y permiten la visualización de edema.
+FLAIR (Fluid Attenuated Inversion Recovery): Una modalidad que suprime el líquido cerebroespinal para resaltar las lesiones cerebrales, como el edema asociado con tumores.
 
-Se extrajeron características estadísticas y basadas en transformada wavelet para entrenar un modelo RandomForest de clasificación entre estados de fatiga y no fatiga. El conjunto de datos fue dividido 80/20 en entrenamiento y prueba previa normalización de características.
+- Formatos
+Todas las imágenes están almacenadas en formato NIfTI (.nii), que es ampliamente utilizado en neuroimagen. Este formato permite manejar volúmenes de datos 3D, preservando la información espacial necesaria para la segmentación precisa.
 
-## Principales hallazgos
+- Características del Conjunto de Datos
+Resolución: Las imágenes han sido preprocesadas para tener una resolución isotrópica de 1 mm³, con dimensiones de 240x240x155 voxeles.
+Etiquetas de Segmentación: Las etiquetas incluyen cuatro clases: tumor realzado (ET), tejido edematoso peritumoral (ED), núcleo necrótico del tumor (NCR), y fondo (voxeles que no son parte del tumor).
+Anotación: Las anotaciones de los tumores han sido realizadas manualmente por entre uno y cuatro expertos, lo que asegura una alta calidad en las etiquetas de segmentación.
 
-- El modelo RandomForest alcanzó 90% de precisión en la clasificación de estados de fatiga muscular a partir de las señales sEMG registradas.
 
-- Los coeficientes de wavelet de niveles iniciales demostraron ser indicadores clave de fatiga.
-
-- La prueba de Wilcoxon confirmó diferencias estadísticamente significativas en las características extraídas antes y después del umbral de detección de fatiga.
-
-- El sistema propuesto es prometedor para la implementación en entornos reales de rehabilitación y la optimización de protocolos.
-
-## Conclusiones
-
-El modelo de aprendizaje automático desarrollado permite detectar confiablemente el inicio de la fatiga muscular durante ejercicios de rehabilitación en bicicleta estática a partir del análisis de señales sEMG. Esto facilitaría el monitoreo en tiempo real para ajustar oportunamente las cargas de trabajo y prevenir sobreesfuerzo y complicaciones.
-
-Se sentaron bases para investigaciones orientadas a evaluar el impacto de este tipo de sistemas de monitoreo inteligente de fatiga muscular en los resultados a mediano y largo plazo de programas de rehabilitación física.
+### Objetivo del proyecto 
+El objetivo principal de este proyecto es replicar el modelo optimizado U-Net propuesto en el artículo y evaluar su desempeño en la segmentación de tumores cerebrales utilizando la base de datos BraTS21. Además, se buscará realizar ajustes y mejoras en la arquitectura y el proceso de entrenamiento para adaptar el modelo a las características específicas de las imágenes disponibles.
 
 ### Integrantes del proyecto
 
 - Ariana Carbajal (colaborador) - ariana.carbajal@upch.pe 
-- Natalia Galindo Concha (colaborador) - natalia.galindo@upch.pe 
-- Gianfranco Fabian Feria Maquera (colaborador) - gianfranco.feria@upch.pe 
-- Eduardo André Cuti Riveros (colaborador) -  eduardo.cuti@upch.pe 
+- Alvaro Sevilla (colaborador) - alvaro.sevilla@upch.pe 
+- Claudia Camacho (colaborador) - claudia.camacho@upch.pe 
+- Angel Dianderas (colaborador) -  angel.dianderas@upch.pe 
 
-
-Para mayor información sobre el equipo de investigación, revisar el [Entregable 1][enlace-entregable1]
-
-[enlace-entregable1]: https://github.com/arianacarbajal/ISB_Grupo3/blob/3df8663a70e21ea88d1cc997fa5a18c9b391c73e/ISB/Laboratorios/1.Sobre%20nosotros.md
-
-
-Para mayor información sobre el código empleado , revisar el [Código Entregable 1][enlace-entregable1]
-
-[enlace-entregable1]:https://github.com/arianacarbajal/ISB_Grupo3/tree/eedd6beeb8655bfa58397a819f8e53da771458a6/Software
