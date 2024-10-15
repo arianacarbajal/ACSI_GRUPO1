@@ -15,19 +15,23 @@ import traceback
 st.set_page_config(page_title="MRI Visualization and Segmentation", layout="wide")
 
 # ---  Configuración del modelo ---
-MODEL_ID = '1r5EWxoBiCMF7ug6jly-3Oma4C9N4ZhGi' 
-MODEL_PATH = 'modelo_entrenado.pth' 
+MODEL_ID = '1r5EWxoBiCMF7ug6jly-3Oma4C9N4ZhGi'
+MODEL_PATH = 'modelo_entrenado.pth'
 
-# --- Definición del modelo U-Net 3D ---
+# --- Rango de cortes para entrenamiento y segmentación ---
+START_SLICE = 40
+END_SLICE = 130
+
+# --- Definición del modelo U-Net 2D ---
 class DoubleConv(nn.Module):
     def __init__(self, in_channels, out_channels):
         super(DoubleConv, self).__init__()
         self.conv = nn.Sequential(
-            nn.Conv3d(in_channels, out_channels, kernel_size=3, padding=1),
-            nn.BatchNorm3d(out_channels),
+            nn.Conv2d(in_channels, out_channels, kernel_size=3, padding=1),
+            nn.BatchNorm2d(out_channels),
             nn.ReLU(inplace=True),
-            nn.Conv3d(out_channels, out_channels, kernel_size=3, padding=1),
-            nn.BatchNorm3d(out_channels),
+            nn.Conv2d(out_channels, out_channels, kernel_size=3, padding=1),
+            nn.BatchNorm2d(out_channels),
             nn.ReLU(inplace=True),
         )
 
@@ -39,7 +43,7 @@ class Down(nn.Module):
     def __init__(self, in_channels, out_channels):
         super(Down, self).__init__()
         self.maxpool_conv = nn.Sequential(
-            nn.MaxPool3d(2),
+            nn.MaxPool2d(2),
             DoubleConv(in_channels, out_channels)
         )
 
@@ -50,17 +54,16 @@ class Down(nn.Module):
 class Up(nn.Module):
     def __init__(self, in_channels, out_channels):
         super(Up, self).__init__()
-        self.up = nn.Upsample(scale_factor=2, mode="trilinear", align_corners=True)
+        self.up = nn.Upsample(scale_factor=2, mode="bilinear", align_corners=True)
         self.conv = DoubleConv(in_channels, out_channels)
 
     def forward(self, x1, x2):
         x1 = self.up(x1)
-        # Ajustar dimensiones en 3D (padding)
+        # Ajustar dimensiones en 2D (padding)
         diffY = x2.size()[2] - x1.size()[2]
         diffX = x2.size()[3] - x1.size()[3]
-        diffZ = x2.size()[4] - x1.size()[4]
         x1 = F.pad(
-            x1, [diffX // 2, diffX - diffX // 2, diffY // 2, diffY - diffY // 2, diffZ // 2, diffZ - diffZ // 2]
+            x1, [diffX // 2, diffX - diffX // 2, diffY // 2, diffY - diffY // 2]
         )
         x = torch.cat([x2, x1], dim=1)
         return self.conv(x)
@@ -78,7 +81,7 @@ class UNet(nn.Module):
         self.up2 = Up(512, 128)
         self.up3 = Up(256, 64)
         self.up4 = Up(128, 64)
-        self.outc = nn.Conv3d(64, n_classes, kernel_size=1)
+        self.outc = nn.Conv2d(64, n_classes, kernel_size=1)
 
     def forward(self, x):
         x1 = self.inc(x)
@@ -116,9 +119,9 @@ def load_nifti(file):
             st.error(f"Error al cargar el archivo NIfTI: {str(e)}")
     return None
 
-
-def preprocess_volume(volume, target_shape=(128, 128, 128)):
-    if len(volume.shape) == 4:
+def preprocess_volume(volume, target_shape=(128, 128)):
+    if len(volume.shape) == 4:  # Verificar que es un volumen 4D (varias modalidades)
+        volume = volume[:, :, START_SLICE:END_SLICE, :]  # Recortar el volumen
         modalities = volume.shape[-1]
         resized_volumes = []
 
@@ -133,20 +136,16 @@ def preprocess_volume(volume, target_shape=(128, 128, 128)):
             min_coords = np.min(non_zero_coords, axis=1)
             max_coords = np.max(non_zero_coords, axis=1)
             cropped_volume = modality_volume[
-                            min_coords[0] : max_coords[0] + 1,
-                            min_coords[1] : max_coords[1] + 1,
-                            min_coords[2] : max_coords[2] + 1,
-                        ]
+                min_coords[0]: max_coords[0] + 1,
+                min_coords[1]: max_coords[1] + 1,
+                min_coords[2]: max_coords[2] + 1,
+            ]
 
             if 0 in cropped_volume.shape:
-                st.error(
-                    f"Las dimensiones del volumen en la modalidad {i} no son válidas para redimensionar."
-                )
+                st.error(f"Las dimensiones del volumen en la modalidad {i} no son válidas para redimensionar.")
                 return None
 
-            st.write(
-                f"Dimensiones del volumen recortado para la modalidad {i}: {cropped_volume.shape}"
-            )
+            st.write(f"Dimensiones del volumen recortado para la modalidad {i}: {cropped_volume.shape}")
 
             factors = [target / float(dim) for target, dim in zip(target_shape, cropped_volume.shape)]
             try:
@@ -157,26 +156,22 @@ def preprocess_volume(volume, target_shape=(128, 128, 128)):
 
             resized_volumes.append(resized_volume)
 
-        resized_volume_4d = np.stack(resized_volumes, axis=-1)
+        resized_volume_4d = np.stack(resized_volumes, axis=-1)  # Combinar las modalidades redimensionadas
 
-        st.write(
-            f"Shape del volumen después de preprocess_volume: {resized_volume_4d.shape}"
-        ) 
+        st.write(f"Shape del volumen después de preprocess_volume: {resized_volume_4d.shape}")
 
         for i in range(modalities):
             non_zero_mask = resized_volume_4d[..., i] > 0
             mean = np.mean(resized_volume_4d[..., i][non_zero_mask])
             std = np.std(resized_volume_4d[..., i][non_zero_mask])
-            resized_volume_4d[..., i][
-                non_zero_mask
-            ] = (resized_volume_4d[..., i][non_zero_mask] - mean) / std
+            resized_volume_4d[..., i][non_zero_mask] = (resized_volume_4d[..., i][non_zero_mask] - mean) / std
 
         return resized_volume_4d
     else:
         st.error("El volumen no tiene el número esperado de dimensiones (4D).")
         return None
 
-def plot_mri_slices(data, modality):
+def plot_mri_slices(data, modality, overlay=None):
     """Muestra cortes axiales de un volumen 3D."""
     st.subheader(f"{modality} MRI")
     slice_idx = st.slider(
@@ -185,11 +180,17 @@ def plot_mri_slices(data, modality):
         data.shape[2] - 1,
         data.shape[2] // 2,
     )
+
     fig, ax = plt.subplots()
     ax.imshow(data[:, :, slice_idx], cmap="gray")
+
+    if overlay is not None:
+        # Asegúrate de que 'overlay' tiene la misma forma que 'data' en las dos primeras dimensiones
+        assert overlay.shape[:2] == data.shape[:2], f"Error: Las formas de la imagen y la máscara no coinciden: {data.shape} vs {overlay.shape}"
+        ax.imshow(overlay[:, :, slice_idx], cmap="hot", alpha=0.6)
+
     ax.axis("off")
     st.pyplot(fig)
-
 
 @st.cache_resource
 def load_model():
@@ -268,17 +269,20 @@ if __name__ == "__main__":
             "Aquí se mostrarán los resultados de la segmentación del tumor. Sube el archivo MRI apilado para segmentar."
         )
 
+        # Subida del archivo apilado 
         uploaded_file = st.file_uploader(
             "Sube el archivo MRI apilado (T1, T2, T1c, FLAIR) en formato NIfTI",
             type=["nii", "nii.gz"],
         )
 
-        if uploaded_file:
+        if uploaded_file is not None:
             img_data = load_nifti(uploaded_file)
+
             if img_data is not None:
                 st.write("Imagen cargada correctamente.")
 
                 try:
+                    # --- Preprocesamiento ---
                     img_preprocessed = preprocess_volume(img_data)
                     st.write(f"Shape después de preprocess_volume: {img_preprocessed.shape}")
 
@@ -286,18 +290,34 @@ if __name__ == "__main__":
                         st.write("Realizando la segmentación...")
 
                         with torch.no_grad():
-                            img_tensor = torch.tensor(img_preprocessed).unsqueeze(0).float()
-                            pred = model(img_tensor)
-                            pred = torch.sigmoid(pred).squeeze().cpu().numpy()
+                            # --- Convertir a tensor de PyTorch y agregar dimensión de batch ---
+                            img_tensor = torch.tensor(img_preprocessed).unsqueeze(0).float()  # [1, 128, 128, 90, 4]
 
-                        # Visualización (T1 original + segmentación)
-                        plot_mri_slices(img_preprocessed[..., 0], "T1 Original", overlay=pred)
+                            # --- Seleccionar un corte para la segmentación 2D ---
+                            slice_idx = st.slider(
+                                "Selecciona un corte axial para la segmentación",
+                                0,
+                                img_tensor.shape[3] - 1,
+                                img_tensor.shape[3] // 2,
+                            )
+                            # Extraer el slice de cada modalidad en el corte seleccionado
+                            img_slice = img_tensor[:, :, :, slice_idx, :] # [1, 128, 128, 4]
+                            img_slice = img_slice.permute(0, 3, 1, 2)  # Reordenar para que las modalidades sean canales: [1, 4, 128, 128]
+                            # --- Realizar la predicción ---
+                            pred = model(img_slice)
+                            pred = torch.sigmoid(pred).squeeze().cpu().numpy() 
+
+                        # --- Visualización (T1 original + segmentación) ---
+                        plot_mri_slices(img_preprocessed[:, :, slice_idx, 0], "T1 Original", overlay=pred)
 
                 except Exception as e:
                     st.error(f"Error durante la segmentación: {e}")
                     st.write(traceback.format_exc())
+
             else:
                 st.error("Error al cargar la imagen.")
+
+    # --- (Resto del código para "Leyendas", "Manual de Usuario", etc.)
  
     # --- Página de Leyendas ---
     elif pagina == "Leyendas":
