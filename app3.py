@@ -267,7 +267,7 @@ elif pagina == "Resultados de Segmentación":
         type=["npy", "nii", "nii.gz"]
     )
 
-    if uploaded_stack:
+    if uploaded_stack is not None:
         try:
             # Cargar datos 
             if uploaded_stack.name.endswith('.npy'):
@@ -280,8 +280,11 @@ elif pagina == "Resultados de Segmentación":
                     img_data = nii_img.get_fdata()  
                     st.write("Archivo NIfTI cargado correctamente.")
                 os.remove(temp_file.name)
+            else:
+                st.error("Tipo de archivo no soportado. Por favor, carga un archivo .npy o .nii/.nii.gz.")
+                return  
 
-            # --- Comprobaciones de dimensiones (añadidas) ---
+            # Comprobaciones de dimensiones
             if len(img_data.shape) != 4:
                 raise ValueError(f"Error: Se esperaban 4 dimensiones (alto, ancho, profundidad, canales). Se obtuvieron: {img_data.shape}")
 
@@ -289,76 +292,63 @@ elif pagina == "Resultados de Segmentación":
             img_preprocessed = preprocess_volume(img_data)
 
             if img_preprocessed is not None and model is not None:
-                st.write("Realizando la segmentación...")
-                with torch.no_grad():
-                    slice_idx = st.slider(
-                        "Selecciona un corte axial para segmentar",
-                        0,
-                        img_preprocessed.shape[2] - 1, 
-                        img_preprocessed.shape[2] // 2,
-                    )
+                # --- Control deslizante ---
+                slice_idx = st.slider(
+                    "Selecciona un corte axial para segmentar",
+                    0,
+                    img_preprocessed.shape[2] - 1,
+                    img_preprocessed.shape[2] // 2,
+                )
 
-                    # Seleccionar el corte
+                with torch.no_grad():
+                    # --- Seleccionar el corte ---
                     img_slice = img_preprocessed[:, :, slice_idx, :]
 
-                    # Añadir dimensión de batch (1, alto, ancho, canales)
-                    img_tensor = torch.tensor(img_slice).unsqueeze(0).float() 
-                    
-                    # Ajustar dimensiones para el modelo U-Net 2D 
-                    img_tensor = img_tensor.permute(0, 3, 1, 2)  
-
-                    # Inferencia 
+                    # --- Inferencia para un solo corte ---
+                    img_tensor = torch.tensor(img_slice).unsqueeze(0).float()
+                    img_tensor = img_tensor.permute(0, 3, 1, 2)  # Ajustar dimensiones para el modelo 
                     pred = model(img_tensor)
 
-                    # Procesar  'pred' 
-                    pred = torch.sigmoid(pred).squeeze(0).cpu().numpy() # Eliminar batch y a numpy
-                    
-                    # --- Depuración ---
-                    st.write(f"Forma de 'pred' ANTES de ajustar: {pred.shape}")
-                    
-                    # Asegurar que tenga 3 dimensiones
-                    if len(pred.shape) == 2:
-                        pred = np.expand_dims(pred, axis=2)
+                    # --- Procesar 'pred' ---
+                    pred = torch.sigmoid(pred).squeeze(0).cpu().numpy() 
 
-                    st.write(f"Forma de 'pred' DESPUÉS de ajustar: {pred.shape}")
-
-                    # Visualizar 
-                    plot_mri_slices(img_preprocessed[:, :, :, 0], "T1 Original", overlay=pred)  
+                # --- Visualización ---
+                plot_mri_slices(img_preprocessed[:, :, :, 0], "T1 Original", overlay=pred)
 
         except Exception as e:
             st.error(f"Error durante la segmentación: {e}")
             st.write(traceback.format_exc())
- 
-    # --- Página de Leyendas ---
-    elif pagina == "Leyendas":
-        st.title("Leyendas de Segmentación")
-        st.write(
-            """
-        En las imágenes segmentadas, cada valor representa un tipo de tejido. A continuación se muestra la leyenda para interpretar las imágenes:
-
-        - 0: Fondo
-        - 1: Núcleo de tumor necrótico (rojo)
-        - 2: Tumor realzado (amarillo)
-        - 3: Tejido edematoso peritumoral (verde)
+            
+# --- Página de Leyendas ---
+elif pagina == "Leyendas":
+    st.title("Leyendas de Segmentación")
+    st.write(
         """
-        )
+    En las imágenes segmentadas, cada valor representa un tipo de tejido. A continuación se muestra la leyenda para interpretar las imágenes:
 
-    # --- Página del Manual de Usuario ---
-    elif pagina == "Manual de Usuario":
-        st.title("Manual de Usuario")
-        st.write(
-            """
-        Manual de Uso del Visualizador de MRI:
+    - 0: Fondo
+    - 1: Núcleo de tumor necrótico (rojo)
+    - 2: Tumor realzado (amarillo)
+    - 3: Tejido edematoso peritumoral (verde)
+    """
+    )
 
-        1. Cargar Archivos: 
-            - Para visualizar: Sube los archivos MRI en formato NIfTI para cada modalidad (T1, T2, T1c, FLAIR) en la página "Visualización MRI". Puedes subir un único archivo que contenga todas las modalidades o cada modalidad por separado. 
-            - Para segmentar: Sube un único archivo que contenga las 4 modalidades (T1, T2, T1c, FLAIR) en la página "Resultados de Segmentación".
-        2. Visualización de Cortes: Usa el control deslizante para seleccionar el corte axial que desees visualizar.
-        3. Segmentación: Una vez que hayas cargado un archivo válido, la segmentación se ejecutará automáticamente y se mostrará junto a la imagen original.
-        4. Interpretación: Utiliza la página de Leyendas para entender el significado de los colores en la segmentación.
-        5. Planificación Quirúrgica: La página "Planificación Quirúrgica" proporciona información sobre cómo la segmentación puede ayudar en la planificación de cirugías.
+# --- Página del Manual de Usuario ---
+elif pagina == "Manual de Usuario":
+    st.title("Manual de Usuario")
+    st.write(
         """
-        )
+    Manual de Uso del Visualizador de MRI:
+
+    1. Cargar Archivos: 
+        - Para visualizar: Sube los archivos MRI en formato NIfTI para cada modalidad (T1, T2, T1c, FLAIR) en la página "Visualización MRI". Puedes subir un único archivo que contenga todas las modalidades o cada modalidad por separado. 
+        - Para segmentar: Sube un único archivo que contenga las 4 modalidades (T1, T2, T1c, FLAIR) en la página "Resultados de Segmentación".
+    2. Visualización de Cortes: Usa el control deslizante para seleccionar el corte axial que desees visualizar.
+    3. Segmentación: Una vez que hayas cargado un archivo válido, la segmentación se ejecutará automáticamente y se mostrará junto a la imagen original.
+    4. Interpretación: Utiliza la página de Leyendas para entender el significado de los colores en la segmentación.
+    5. Planificación Quirúrgica: La página "Planificación Quirúrgica" proporciona información sobre cómo la segmentación puede ayudar en la planificación de cirugías.
+    """
+    )
 
     # --- Página sobre Planificación Quirúrgica ---
     elif pagina == "Planificación Quirúrgica":
