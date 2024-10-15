@@ -237,49 +237,49 @@ if pagina == "Visualización MRI":
                 plot_mri_slices1(flair_data, "T2-FLAIR")
 
    
-
+    
     # --- Página de Resultados de Segmentación ---
     elif pagina == "Resultados de Segmentación":
         st.title("Resultados de Segmentación")
-        st.write(
-            "Aquí se mostrarán los resultados de la segmentación del tumor. Sube el archivo MRI para segmentar."
-        )
-
-        uploaded_file = st.file_uploader(
-            "Sube el archivo MRI apilado (T1, T2, FLAIR, etc.) en formato NIfTI",
-            type=["nii", "nii.gz"],
-        )
-
+        st.write("Sube el archivo MRI apilado (T1, T2, FLAIR, etc.) en formato NIfTI")
+    
+        uploaded_file = st.file_uploader("Sube el archivo MRI apilado (formato NIfTI)", type=["nii", "nii.gz"])
+    
         if uploaded_file:
-            img_data, img_shape = load_nifti(uploaded_file)
-            st.write(f"Dimensiones del archivo cargado: {img_shape}")
-
+            # Cargar el archivo NIfTI y convertirlo en datos numéricos (numpy array)
+            img_nifti = nib.load(uploaded_file)
+            img_data = img_nifti.get_fdata()
+            st.write(f"Dimensiones del archivo cargado: {img_data.shape}")
+    
             if img_data is not None:
-                st.write("Imagen cargada correctamente.")
-
+                st.write("Imagen cargada correctamente. Procesando el volumen...")
+    
                 try:
-                    img_preprocessed = preprocess_volume(img_data)
-                    st.write(f"Shape después de preprocess_volume: {img_preprocessed.shape}")
-
-                    if img_preprocessed is not None and model is not None:
+                    # Preprocesar el volumen (recorte y normalización)
+                    target_shape = (128, 128, img_data.shape[2])  # Ajusta el tamaño objetivo según tu caso
+                    preprocessed_img = np.stack([preprocess_volume(img_data[..., i], target_shape) for i in range(img_data.shape[-1])], axis=-1)
+    
+                    # Guardar el volumen preprocesado como archivo .npy
+                    temp_npy_file = tempfile.NamedTemporaryFile(delete=False, suffix=".npy")
+                    np.save(temp_npy_file.name, preprocessed_img)
+                    st.write(f"Volumen preprocesado guardado temporalmente en {temp_npy_file.name}")
+    
+                    # Segmentación usando el modelo U-Net
+                    if model is not None:
                         st.write("Realizando la segmentación...")
+                        slice_idx = st.slider("Selecciona un corte axial para segmentar", 0, preprocessed_img.shape[2] - 1, preprocessed_img.shape[2] // 2)
+                        img_slice = preprocessed_img[:, :, slice_idx, :]
+                        img_tensor = torch.tensor(img_slice).unsqueeze(0).float()
+                        img_tensor = img_tensor.permute(0, 3, 1, 2)  # Cambiar a formato (batch, canales, altura, anchura)
+    
                         with torch.no_grad():
-                            slice_idx = st.slider(
-                                "Selecciona un corte axial para segmentar",
-                                0,
-                                img_preprocessed.shape[2] - 1,  
-                                img_preprocessed.shape[2] // 2,
-                            )
-                            img_slice = img_preprocessed[:, :, slice_idx, :]  
-                            img_tensor = torch.tensor(img_slice).unsqueeze(0).float()
-                            img_tensor = img_tensor.permute(0, 3, 1, 2)  
                             pred = model(img_tensor)
-                            pred = torch.sigmoid(pred).squeeze().cpu().numpy()  
-
-                        plot_mri_slices(img_preprocessed[:, :, slice_idx, 0], "T1 Original", overlay=pred) 
-
+                            pred = torch.sigmoid(pred).squeeze().cpu().numpy()
+    
+                        plot_mri_slices(preprocessed_img[:, :, slice_idx, 0], "T1 Original", overlay=pred)
+    
                 except Exception as e:
-                    st.error(f"Error durante la segmentación: {e}")
+                    st.error(f"Error durante el preprocesamiento o la segmentación: {e}")
                     st.write(traceback.format_exc())
             else:
                 st.error("Error al cargar la imagen.")
