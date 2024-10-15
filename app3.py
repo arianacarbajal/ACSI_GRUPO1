@@ -6,17 +6,31 @@ import torch
 from torch.nn import functional as F
 import tempfile
 from scipy.ndimage import zoom
-import requests  # Para descargar el modelo desde Google Drive
+import requests
+import os
+import io
+
+# Configuración de la página
+st.set_page_config(page_title="MRI Visualization and Segmentation", layout="wide")
 
 # Función para descargar el modelo desde Google Drive
+@st.cache_data
 def download_model(url, output_path):
-    response = requests.get(url)
-    with open(output_path, 'wb') as f:
-        f.write(response.content)
+    if not os.path.exists(output_path):
+        try:
+            response = requests.get(url)
+            response.raise_for_status()
+            with open(output_path, 'wb') as f:
+                f.write(response.content)
+            st.success(f"Modelo descargado y guardado en {output_path}")
+        except Exception as e:
+            st.error(f"Error al descargar el modelo: {str(e)}")
+            return None
+    return output_path
 
-# Descargar el archivo .pth desde Google Drive
+# URL del modelo (asegúrate de que esta URL sea accesible y válida)
 model_url = 'https://drive.google.com/uc?export=download&id=1r5EWxoBiCMF7ug6jly-3Oma4C9N4ZhGi'
-download_model(model_url, 'modelo_entrenado.pth')
+model_path = download_model(model_url, 'modelo_entrenado.pth')
 
 # Crear las páginas en la barra lateral
 st.sidebar.title("Navegación")
@@ -25,23 +39,24 @@ pagina = st.sidebar.radio("Ir a", ["Visualización MRI", "Resultados de Segmenta
 # Función para cargar archivos NIfTI
 def load_nifti(file):
     if file is not None:
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".nii.gz") as temp_file:
-            temp_file.write(file.read())  # Escribir el archivo en el sistema temporal
-            temp_file.flush()  # Asegurarse de que el archivo esté completamente escrito
-            img = nib.load(temp_file.name)  # Cargar el archivo NIfTI desde el archivo temporal
-            return img.get_fdata()
+        try:
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".nii.gz") as temp_file:
+                temp_file.write(file.read())
+                temp_file.flush()
+                img = nib.load(temp_file.name)
+                return img.get_fdata()
+        except Exception as e:
+            st.error(f"Error al cargar el archivo NIfTI: {str(e)}")
     return None
 
 # Función de preprocesamiento para manejar volúmenes 4D
 def preprocess_volume(volume, target_shape=(128, 128, 128)):
-    """Recorta y normaliza el volumen, ajustándolo al tamaño objetivo. Maneja volúmenes 4D (modalidades)."""
-    
-    if len(volume.shape) == 4:  # Verificar si el volumen es 4D (x, y, z, canales)
-        modalities = volume.shape[-1]  # Número de modalidades
+    if len(volume.shape) == 4:
+        modalities = volume.shape[-1]
         resized_volumes = []
         
-        for i in range(modalities):  # Procesar cada modalidad individualmente
-            modality_volume = volume[..., i]  # Extraer una modalidad
+        for i in range(modalities):
+            modality_volume = volume[..., i]
             non_zero_coords = np.array(np.nonzero(modality_volume))
             
             if non_zero_coords.size == 0:
@@ -54,13 +69,12 @@ def preprocess_volume(volume, target_shape=(128, 128, 128)):
                                              min_coords[1]:max_coords[1]+1,
                                              min_coords[2]:max_coords[2]+1]
 
-            if cropped_volume.shape[0] == 0 or cropped_volume.shape[1] == 0 or cropped_volume.shape[2] == 0:
+            if 0 in cropped_volume.shape:
                 st.error(f"Las dimensiones del volumen en la modalidad {i} no son válidas para redimensionar.")
                 return None
 
             st.write(f"Dimensiones del volumen recortado para la modalidad {i}: {cropped_volume.shape}")
 
-            # Redimensionar al tamaño objetivo
             factors = [target / float(dim) for target, dim in zip(target_shape, cropped_volume.shape)]
             try:
                 resized_volume = zoom(cropped_volume, factors, order=1)
@@ -70,10 +84,8 @@ def preprocess_volume(volume, target_shape=(128, 128, 128)):
             
             resized_volumes.append(resized_volume)
         
-        # Combinar las modalidades redimensionadas en un solo volumen 4D
         resized_volume_4d = np.stack(resized_volumes, axis=-1)
 
-        # Normalizar cada modalidad por separado
         for i in range(modalities):
             non_zero_mask = resized_volume_4d[..., i] > 0
             mean = np.mean(resized_volume_4d[..., i][non_zero_mask])
@@ -81,12 +93,11 @@ def preprocess_volume(volume, target_shape=(128, 128, 128)):
             resized_volume_4d[..., i][non_zero_mask] = (resized_volume_4d[..., i][non_zero_mask] - mean) / std
         
         return resized_volume_4d
-    
     else:
         st.error("El volumen no tiene el número esperado de dimensiones (4D).")
         return None
 
-# Definir el modelo (Ejemplo de UNet simple)
+# Definir el modelo
 class SimpleSegmentationModel(torch.nn.Module):
     def __init__(self):
         super(SimpleSegmentationModel, self).__init__()
@@ -104,15 +115,14 @@ class SimpleSegmentationModel(torch.nn.Module):
 def plot_mri_slices(data, modality):
     st.subheader(f"{modality} MRI")
     slice_idx = st.slider(f"Selecciona un corte axial para {modality}", 0, data.shape[2] - 1, data.shape[2] // 2)
-    plt.imshow(data[:, :, slice_idx], cmap='gray')
-    plt.axis('off')
-    st.pyplot(plt)
+    fig, ax = plt.subplots()
+    ax.imshow(data[:, :, slice_idx], cmap='gray')
+    ax.axis('off')
+    st.pyplot(fig)
 
 # Cargar el modelo
-@st.cache(allow_output_mutation=True)
+@st.cache_resource
 def load_model():
-    model_path = "modelo_entrenado.pth"
-    
     if not os.path.exists(model_path):
         st.error(f"El archivo del modelo '{model_path}' no existe.")
         return None
@@ -123,23 +133,10 @@ def load_model():
         model.load_state_dict(state_dict)
         model.eval()
         return model
-    except RuntimeError as e:
-        st.error(f"Error al cargar el modelo: {str(e)}")
-        st.info("Este error puede ocurrir si el modelo fue guardado con una versión diferente de PyTorch.")
-    except _pickle.UnpicklingError as e:
-        st.error(f"Error al deserializar el modelo: {str(e)}")
-        st.info("El archivo del modelo podría estar corrupto o ser incompatible.")
     except Exception as e:
-        st.error(f"Error inesperado al cargar el modelo: {str(e)}")
+        st.error(f"Error al cargar el modelo: {str(e)}")
     
     return None
-
-# Uso de la función
-model = load_model()
-if model is None:
-    st.warning("No se pudo cargar el modelo. Algunas funcionalidades pueden no estar disponibles.")
-else:
-    st.success("Modelo cargado exitosamente.")
 
 # Página de visualización MRI
 if pagina == "Visualización MRI":
@@ -152,25 +149,25 @@ if pagina == "Visualización MRI":
     flair_file = st.file_uploader("Sube el archivo T2-FLAIR", type=["nii", "nii.gz"])
 
     if t1_file or t1c_file or t2_file or flair_file:
-        if t1_file:
-            t1_data = load_nifti(t1_file)
-            if t1_data is not None:
-                plot_mri_slices(t1_data, "T1-weighted")
-
-        if t1c_file:
-            t1c_data = load_nifti(t1c_file)
-            if t1c_data is not None:
-                plot_mri_slices(t1c_data, "T1c (con contraste)")
-
-        if t2_file:
-            t2_data = load_nifti(t2_file)
-            if t2_data is not None:
-                plot_mri_slices(t2_data, "T2-weighted")
-
-        if flair_file:
-            flair_data = load_nifti(flair_file)
-            if flair_data is not None:
-                plot_mri_slices(flair_data, "T2-FLAIR")
+        col1, col2 = st.columns(2)
+        with col1:
+            if t1_file:
+                t1_data = load_nifti(t1_file)
+                if t1_data is not None:
+                    plot_mri_slices(t1_data, "T1-weighted")
+            if t2_file:
+                t2_data = load_nifti(t2_file)
+                if t2_data is not None:
+                    plot_mri_slices(t2_data, "T2-weighted")
+        with col2:
+            if t1c_file:
+                t1c_data = load_nifti(t1c_file)
+                if t1c_data is not None:
+                    plot_mri_slices(t1c_data, "T1c (con contraste)")
+            if flair_file:
+                flair_data = load_nifti(flair_file)
+                if flair_data is not None:
+                    plot_mri_slices(flair_data, "T2-FLAIR")
 
 # Página de Resultados de Segmentación
 elif pagina == "Resultados de Segmentación":
@@ -184,26 +181,24 @@ elif pagina == "Resultados de Segmentación":
         if img_data is not None:
             st.write("Imagen cargada correctamente.")
             
-            # Preprocesar la imagen
             img_preprocessed = preprocess_volume(img_data)
 
             if img_preprocessed is not None:
-                # Convertir la imagen preprocesada en un tensor y añadir la dimensión de batch
                 img_tensor = torch.tensor(img_preprocessed).unsqueeze(0).float()
 
-                # Cargar el modelo
                 model = load_model()
+                if model:
+                    with torch.no_grad():
+                        pred = model(img_tensor)
+                        pred = torch.sigmoid(pred).squeeze().numpy()
 
-                # Realizar la segmentación
-                with torch.no_grad():
-                    pred = model(img_tensor)
-                    pred = torch.sigmoid(pred).squeeze().numpy()
-
-                # Mostrar la segmentación
-                slice_idx = st.slider("Selecciona un corte axial para visualizar la segmentación", 0, pred.shape[2] - 1, pred.shape[2] // 2)
-                plt.imshow(pred[:, :, slice_idx], cmap='hot', alpha=0.6)
-                plt.axis('off')
-                st.pyplot(plt)
+                    slice_idx = st.slider("Selecciona un corte axial para visualizar la segmentación", 0, pred.shape[2] - 1, pred.shape[2] // 2)
+                    fig, ax = plt.subplots()
+                    ax.imshow(pred[:, :, slice_idx], cmap='hot', alpha=0.6)
+                    ax.axis('off')
+                    st.pyplot(fig)
+                else:
+                    st.error("No se pudo cargar el modelo para la segmentación.")
 
 # Página de Leyendas
 elif pagina == "Leyendas":
@@ -226,6 +221,8 @@ elif pagina == "Manual de Usuario":
     1. Cargar Archivos: Sube los archivos MRI en formato NIfTI para cada modalidad (T1, T2, T1c, FLAIR).
     2. Visualización de Cortes: Usa el control deslizante para seleccionar el corte axial que desees visualizar.
     3. Segmentación: Sube el archivo de segmentación para visualizar las etiquetas correspondientes al tumor.
+    4. Interpretación: Utiliza la página de Leyendas para entender el significado de los colores en la segmentación.
+    5. Planificación Quirúrgica: Consulta la información sobre cómo estos datos pueden ayudar en la planificación de cirugías.
     """)
 
 # Página sobre Planificación Quirúrgica
@@ -235,7 +232,22 @@ elif pagina == "Planificación Quirúrgica":
     La segmentación de imágenes cerebrales juega un papel crucial en la planificación de cirugías para la resección de tumores cerebrales. 
     Al identificar el núcleo del tumor, el tejido edematoso y el tumor realzado, los cirujanos pueden planificar estrategias precisas para la intervención quirúrgica.
 
-    Este sistema de visualización y segmentación permite a los médicos observar la estructura del tumor en detalle y tomar decisiones informadas sobre la ruta quirúrgica y el tratamiento más adecuado.
+    Este sistema de visualización y segmentación permite a los médicos:
+    1. Observar la estructura del tumor en detalle.
+    2. Identificar áreas críticas y zonas de riesgo.
+    3. Planificar la ruta quirúrgica más segura y efectiva.
+    4. Estimar el volumen del tumor y la extensión de la resección necesaria.
+    5. Evaluar la proximidad del tumor a estructuras cerebrales importantes.
+
+    La precisión de esta información es vital para:
+    - Maximizar la extirpación del tumor.
+    - Minimizar el daño al tejido cerebral sano.
+    - Mejorar los resultados postoperatorios del paciente.
+    - Facilitar la comunicación entre el equipo médico y con el paciente.
+
+    Recuerde que esta herramienta es un apoyo a la decisión clínica y debe utilizarse en conjunto con la experiencia del neurocirujano y otros datos clínicos relevantes.
     """)
 
-
+# Mensaje de pie de página
+st.sidebar.markdown("---")
+st.sidebar.info("Desarrollado por el Grupo 1 de ACSI")
