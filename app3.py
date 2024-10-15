@@ -238,10 +238,6 @@ if pagina == "Visualización MRI":
 
    
     
-import io
-import nibabel as nib
-import numpy as np
-
 # --- Página de Resultados de Segmentación ---
 elif pagina == "Resultados de Segmentación":
     st.title("Resultados de Segmentación")
