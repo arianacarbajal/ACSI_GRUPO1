@@ -35,6 +35,7 @@ class DoubleConv(nn.Module):
     def forward(self, x):
         return self.conv(x)
 
+# --- Definición de la clase Down ---
 class Down(nn.Module):
     """Downscaling with maxpool then double conv"""
 
