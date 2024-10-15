@@ -291,7 +291,7 @@ elif pagina == "Resultados de Segmentación":
                     # Mostrar la segmentación realizada
                     if img_preprocessed is not None and model is not None:
                         st.write("Realizando la segmentación...")
-                        with torch.no_grad():
+                        with torch.no_grad()::
                             slice_idx = st.slider(
                                 "Selecciona un corte axial para segmentar",
                                 0,
@@ -304,7 +304,7 @@ elif pagina == "Resultados de Segmentación":
                             pred = model(img_tensor)
                             pred = torch.sigmoid(pred).squeeze().cpu().numpy()  # Convertir a numpy y aplicar sigmoide
 
-                        plot_mri_slices(img_data,  "Example", overlay=some_overlay)
+                        plot_mri_slices(img_preprocessed[:, :, slice_idx, 0], "T1 Original", overlay=pred
 
                 except Exception as e:
                     st.error(f"Error durante la segmentación: {e}")
