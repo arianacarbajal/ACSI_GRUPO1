@@ -323,7 +323,7 @@ elif pagina == "Resultados de Segmentación":
                     st.write(f"Forma de 'pred' DESPUÉS de ajustar: {pred.shape}")
 
                     # Visualizar 
-                    plot_mri_slices(img_preprocessed[:, :, slice_idx, 0], "T1 Original", overlay=pred)  
+                    plot_mri_slices(img_preprocessed[:, :, :, 0], "T1 Original", overlay=pred)  
 
         except Exception as e:
             st.error(f"Error durante la segmentación: {e}")
