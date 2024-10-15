@@ -295,8 +295,6 @@ if pagina == "Visualización MRI":
             flair_data = load_nifti1(flair_file)
             if flair_data is not None:
                 plot_mri_slices1(flair_data, "T2-FLAIR")
-
-   
     
 # --- Sección "Resultados de Segmentación" ---
 elif pagina == "Resultados de Segmentación":
