@@ -263,45 +263,48 @@ if pagina == "Visualización MRI":
 # --- Sección "Resultados de Segmentación" (CORREGIDA) ---
 elif pagina == "Resultados de Segmentación":
     st.title("Resultados de Segmentación")
-    st.write(
-        "Sube el archivo apilado (stack) para segmentar."
+    st.write("Sube el archivo apilado (stack) para segmentar.")
+
+    # ... (carga del modelo - por ejemplo, con 'load_model()') ... 
+
+    uploaded_stack = st.file_uploader(
+        "Sube el archivo apilado de MRI (.npy o .nii/.nii.gz)",
+        type=["npy", "nii", "nii.gz"]
     )
 
-    # ... (carga del modelo) ...
+    if uploaded_stack is not None:
+        try:
+            # --- Cargar datos ---
+            if uploaded_stack.name.endswith(".npy"):
+                img_data = np.load(uploaded_stack)
+            elif uploaded_stack.name.endswith((".nii", ".nii.gz")):
+                with tempfile.NamedTemporaryFile(delete=False, suffix=".nii.gz") as temp_file:
+                    temp_file.write(uploaded_stack.read())
+                    temp_file.flush()
+                    nii_img = nib.load(temp_file.name)
+                    img_data = nii_img.get_fdata()
+                    st.write("Archivo NIfTI cargado correctamente.")
+                os.remove(temp_file.name)
+            else:
+                st.error(
+                    "Tipo de archivo no soportado. Por favor, carga un archivo .npy o .nii/.nii.gz."
+                )
+                st.stop()
 
-    if img_preprocessed is not None and model is not None:
-        st.write("Visualización y segmentación:")
+            # Comprobaciones de dimensiones
+            if len(img_data.shape) != 4:
+                raise ValueError(
+                    f"Error: Se esperaban 4 dimensiones (alto, ancho, profundidad, canales). Se obtuvieron: {img_data.shape}"
+                )
 
-        uploaded_stack = st.file_uploader(
-            "Sube el archivo apilado de MRI (.npy o .nii/.nii.gz)",
-            type=["npy", "nii", "nii.gz"]
-        )
+            # Preprocesar volumen
+            img_preprocessed = preprocess_volume(img_data)
 
-        if uploaded_stack is not None: # Movemos todo el bloque de cargar datos dentro de la condición 'if uploaded_stack is not None:'
-            try:
-                # --- Cargar datos AQUÍ --- 
-                if uploaded_stack.name.endswith('.npy'):
-                    img_data = np.load(uploaded_stack)
-                elif uploaded_stack.name.endswith(('.nii', '.nii.gz')):
-                    with tempfile.NamedTemporaryFile(delete=False, suffix=".nii.gz") as temp_file:
-                        temp_file.write(uploaded_stack.read())
-                        temp_file.flush() 
-                        nii_img = nib.load(temp_file.name)
-                        img_data = nii_img.get_fdata()  
-                        st.write("Archivo NIfTI cargado correctamente.")
-                    os.remove(temp_file.name)
-                else:
-                    st.error("Tipo de archivo no soportado. Por favor, carga un archivo .npy o .nii/.nii.gz.")
-                    st.stop() 
+            # --- Verificar modelo e imagen preprocesada ---
+            if img_preprocessed is not None and model is not None: 
+                st.write("Visualización y segmentación:")
 
-                # --- Comprobaciones de dimensiones ---
-                if len(img_data.shape) != 4:
-                    raise ValueError(f"Error: Se esperaban 4 dimensiones (alto, ancho, profundidad, canales). Se obtuvieron: {img_data.shape}")
-
-                # --- Preprocesar volumen --- 
-                img_preprocessed = preprocess_volume(img_data)
-
-                # --- Un solo slider ---
+                # --- Control deslizante ---
                 slice_idx = st.slider(
                     "Selecciona un corte axial:",
                     0,
@@ -314,23 +317,29 @@ elif pagina == "Resultados de Segmentación":
 
                 with col1:
                     # --- MRI Original ---
-                    plot_mri_slices(img_preprocessed[:, :, :, 0], "MRI Original", slice_idx)  
+                    plot_mri_slices(
+                        img_preprocessed[:, :, :, 0], "MRI Original", slice_idx
+                    )
 
                 with col2:
                     with torch.no_grad():
                         # --- Segmentación ---
                         img_slice = img_preprocessed[:, :, slice_idx, :]
                         img_tensor = torch.tensor(img_slice).unsqueeze(0).float()
-                        img_tensor = img_tensor.permute(0, 3, 1, 2) 
+                        img_tensor = img_tensor.permute(0, 3, 1, 2)  # Ajustar dimensiones
                         pred = model(img_tensor)
                         pred = torch.sigmoid(pred).squeeze(0).cpu().numpy() 
 
                     # --- MRI Segmentada ---
-                    plot_mri_slices(img_preprocessed[:, :, :, 0], "MRI Segmentada", slice_idx, overlay=pred)
+                    plot_mri_slices(
+                        img_preprocessed[:, :, :, 0], "MRI Segmentada", slice_idx, overlay=pred
+                    )
+            else:
+                st.warning("Asegúrate de que el modelo se haya cargado correctamente y se haya subido una imagen.") 
 
-            except Exception as e:
-                st.error(f"Error durante la segmentación: {e}")
-                st.write(traceback.format_exc())
+        except Exception as e:
+            st.error(f"Error durante la segmentación: {e}")
+            st.write(traceback.format_exc())
 
             
 # --- Página de Leyendas ---
