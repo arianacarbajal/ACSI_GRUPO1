@@ -22,7 +22,6 @@ download_model(model_url, 'modelo_entrenado.pth')
 st.sidebar.title("Navegación")
 pagina = st.sidebar.radio("Ir a", ["Visualización MRI", "Resultados de Segmentación", "Leyendas", "Manual de Usuario", "Planificación Quirúrgica"])
 
-
 # Función para cargar archivos NIfTI
 def load_nifti(file):
     if file is not None:
@@ -33,27 +32,39 @@ def load_nifti(file):
             return img.get_fdata()
     return None
 
-
 # Función de preprocesamiento
 def preprocess_volume(volume, target_shape=(128, 128, 128)):
     """Recorta y normaliza el volumen, ajustándolo al tamaño objetivo."""
     non_zero_coords = np.array(np.nonzero(volume))
+    if non_zero_coords.size == 0:
+        st.error("El volumen no tiene suficientes datos no cero.")
+        return None
+
     min_coords = np.min(non_zero_coords, axis=1)
     max_coords = np.max(non_zero_coords, axis=1)
     cropped_volume = volume[min_coords[0]:max_coords[0]+1, min_coords[1]:max_coords[1]+1, min_coords[2]:max_coords[2]+1]
-    
+
+    if cropped_volume.shape[0] == 0 or cropped_volume.shape[1] == 0 or cropped_volume.shape[2] == 0:
+        st.error("Las dimensiones del volumen no son válidas para redimensionar.")
+        return None
+
+    st.write("Dimensiones del volumen recortado:", cropped_volume.shape)
+
     # Redimensionar el volumen al tamaño objetivo
     factors = [target / float(dim) for target, dim in zip(target_shape, cropped_volume.shape)]
-    resized_volume = zoom(cropped_volume, factors, order=1)
-    
+    try:
+        resized_volume = zoom(cropped_volume, factors, order=1)
+    except Exception as e:
+        st.error(f"Error al redimensionar el volumen: {e}")
+        return None
+
     # Normalizar los valores no cero
     non_zero_mask = resized_volume > 0
     mean = np.mean(resized_volume[non_zero_mask])
     std = np.std(resized_volume[non_zero_mask])
     resized_volume[non_zero_mask] = (resized_volume[non_zero_mask] - mean) / std
-    
-    return resized_volume
 
+    return resized_volume
 
 # Definir el modelo (Ejemplo de UNet simple)
 class SimpleSegmentationModel(torch.nn.Module):
@@ -69,7 +80,6 @@ class SimpleSegmentationModel(torch.nn.Module):
         x = self.conv3(x)
         return x
 
-
 # Función para mostrar cortes de las imágenes
 def plot_mri_slices(data, modality):
     st.subheader(f"{modality} MRI")
@@ -78,7 +88,6 @@ def plot_mri_slices(data, modality):
     plt.axis('off')
     st.pyplot(plt)
 
-
 # Cargar el modelo
 @st.cache(allow_output_mutation=True)
 def load_model():
@@ -86,7 +95,6 @@ def load_model():
     model.load_state_dict(torch.load("modelo_entrenado.pth", map_location=torch.device('cpu')))
     model.eval()  # Poner el modelo en modo evaluación
     return model
-
 
 # Página de visualización MRI
 if pagina == "Visualización MRI":
@@ -119,7 +127,6 @@ if pagina == "Visualización MRI":
             if flair_data is not None:
                 plot_mri_slices(flair_data, "T2-FLAIR")
 
-
 # Página de Resultados de Segmentación
 elif pagina == "Resultados de Segmentación":
     st.title("Resultados de Segmentación")
@@ -135,23 +142,23 @@ elif pagina == "Resultados de Segmentación":
             # Preprocesar la imagen
             img_preprocessed = preprocess_volume(img_data)
 
-            # Convertir la imagen preprocesada en un tensor y añadir la dimensión de batch
-            img_tensor = torch.tensor(img_preprocessed).unsqueeze(0).unsqueeze(0).float()
+            if img_preprocessed is not None:
+                # Convertir la imagen preprocesada en un tensor y añadir la dimensión de batch
+                img_tensor = torch.tensor(img_preprocessed).unsqueeze(0).unsqueeze(0).float()
 
-            # Cargar el modelo
-            model = load_model()
+                # Cargar el modelo
+                model = load_model()
 
-            # Realizar la segmentación
-            with torch.no_grad():
-                pred = model(img_tensor)
-                pred = torch.sigmoid(pred).squeeze().numpy()
+                # Realizar la segmentación
+                with torch.no_grad():
+                    pred = model(img_tensor)
+                    pred = torch.sigmoid(pred).squeeze().numpy()
 
-            # Mostrar la segmentación
-            slice_idx = st.slider("Selecciona un corte axial para visualizar la segmentación", 0, pred.shape[2] - 1, pred.shape[2] // 2)
-            plt.imshow(pred[:, :, slice_idx], cmap='hot', alpha=0.6)
-            plt.axis('off')
-            st.pyplot(plt)
-
+                # Mostrar la segmentación
+                slice_idx = st.slider("Selecciona un corte axial para visualizar la segmentación", 0, pred.shape[2] - 1, pred.shape[2] // 2)
+                plt.imshow(pred[:, :, slice_idx], cmap='hot', alpha=0.6)
+                plt.axis('off')
+                st.pyplot(plt)
 
 # Página de Leyendas
 elif pagina == "Leyendas":
@@ -165,7 +172,6 @@ elif pagina == "Leyendas":
     - 3: Tejido edematoso peritumoral (verde)
     """)
 
-
 # Página del Manual de Usuario
 elif pagina == "Manual de Usuario":
     st.title("Manual de Usuario")
@@ -177,7 +183,6 @@ elif pagina == "Manual de Usuario":
     3. Segmentación: Sube el archivo de segmentación para visualizar las etiquetas correspondientes al tumor.
     """)
 
-
 # Página sobre Planificación Quirúrgica
 elif pagina == "Planificación Quirúrgica":
     st.title("Aplicaciones en la Planificación Quirúrgica")
@@ -187,3 +192,4 @@ elif pagina == "Planificación Quirúrgica":
 
     Este sistema de visualización y segmentación permite a los médicos observar la estructura del tumor en detalle y tomar decisiones informadas sobre la ruta quirúrgica y el tratamiento más adecuado.
     """)
+
