@@ -351,9 +351,9 @@ elif pagina == "Manual de Usuario":
     )
 
     # --- Página sobre Planificación Quirúrgica ---
-    elif pagina == "Planificación Quirúrgica":
-        st.title("Aplicaciones en la Planificación Quirúrgica")
-        st.write(
+elif pagina == "Planificación Quirúrgica":
+    st.title("Aplicaciones en la Planificación Quirúrgica")
+    st.write(
             """
         La segmentación de imágenes cerebrales juega un papel crucial en la planificación de cirugías para la resección de tumores cerebrales. 
         Al identificar el núcleo del tumor, el tejido edematoso y el tumor realzado, los cirujanos pueden planificar estrategias precisas para la intervención quirúrgica.
@@ -376,5 +376,5 @@ elif pagina == "Manual de Usuario":
         )
 
     # --- Mensaje de pie de página ---
-    st.sidebar.markdown("---")
+st.sidebar.markdown("---")
     st.sidebar.info("Desarrollado por el Grupo 1 de ACSI")
