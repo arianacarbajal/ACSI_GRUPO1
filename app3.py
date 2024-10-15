@@ -111,10 +111,35 @@ def plot_mri_slices(data, modality):
 # Cargar el modelo
 @st.cache(allow_output_mutation=True)
 def load_model():
-    model = SimpleSegmentationModel()
-    model.load_state_dict(torch.load("modelo_entrenado.pth", map_location=torch.device('cpu')))
-    model.eval()  # Poner el modelo en modo evaluación
-    return model
+    model_path = "modelo_entrenado.pth"
+    
+    if not os.path.exists(model_path):
+        st.error(f"El archivo del modelo '{model_path}' no existe.")
+        return None
+
+    try:
+        model = SimpleSegmentationModel()
+        state_dict = torch.load(model_path, map_location=torch.device('cpu'))
+        model.load_state_dict(state_dict)
+        model.eval()
+        return model
+    except RuntimeError as e:
+        st.error(f"Error al cargar el modelo: {str(e)}")
+        st.info("Este error puede ocurrir si el modelo fue guardado con una versión diferente de PyTorch.")
+    except _pickle.UnpicklingError as e:
+        st.error(f"Error al deserializar el modelo: {str(e)}")
+        st.info("El archivo del modelo podría estar corrupto o ser incompatible.")
+    except Exception as e:
+        st.error(f"Error inesperado al cargar el modelo: {str(e)}")
+    
+    return None
+
+# Uso de la función
+model = load_model()
+if model is None:
+    st.warning("No se pudo cargar el modelo. Algunas funcionalidades pueden no estar disponibles.")
+else:
+    st.success("Modelo cargado exitosamente.")
 
 # Página de visualización MRI
 if pagina == "Visualización MRI":
