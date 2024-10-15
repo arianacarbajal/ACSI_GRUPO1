@@ -155,35 +155,32 @@ def resize_volume_to_shape(volume, target_shape):
     return zoom(volume, factors, order=1)  # Interpolación lineal
 
 
-def plot_mri_slices(data, modality, overlay=None):
-    """Muestra cortes axiales de un volumen 3D, con la posibilidad de una superposición."""
+def plot_mri_slices(data, modality, slice_idx, overlay=None, channel_overlay=0): 
+    """Muestra un corte axial de un volumen 3D."""
     st.subheader(f"{modality} MRI")
 
     if len(data.shape) < 3:
         st.error(f"Error: Se esperaban al menos 3 dimensiones en los datos de imagen, pero se encontraron {len(data.shape)}")
         return
 
-    slice_idx = st.slider(
-        f"Selecciona un corte axial para {modality}",
-        0,
-        data.shape[2] - 1,
-        data.shape[2] // 2,
-    )
+    fig, ax = plt.subplots(figsize=(10, 5)) # Ajusta el tamaño de la figura si es necesario
 
-    fig, ax = plt.subplots()
-    ax.imshow(data[:, :, slice_idx], cmap="gray")  # Mostrar la imagen base en escala de grises
+    # Mostrar la imagen base en escala de grises
+    ax.imshow(data[:, :, slice_idx], cmap="gray")
 
     if overlay is not None:
-        # --- Corrección en el manejo del overlay ---
-        if overlay.shape[1:] != data.shape[:2]: # Comparamos (alto, ancho) 
+        if overlay.shape[1:] != data.shape[:2]:
             st.error(f"Error: Las formas de la imagen y la máscara no coinciden: {data.shape} vs {overlay.shape}")
             return
         else:
-            # Mostrar el canal 0 de 'overlay' usando el índice correcto
-            ax.imshow(overlay[0, :, :], cmap="hot", alpha=0.6)  
+            # --- Corrección para mostrar la superposición ---
+            cmap = plt.cm.get_cmap("jet")  # Puedes usar "jet" u otra paleta de colores
+            overlay_image = cmap(overlay[channel_overlay, :, :]) # Indexar el canal correcto
+            overlay_image[..., 3] = 0.5  # Ajusta la transparencia (alfa) 
+            ax.imshow(overlay_image, alpha=0.6)  
 
     ax.axis("off")
-    st.pyplot(fig)
+    st.pyplot(fig) 
 
 @st.cache_resource
 def load_model():
@@ -257,32 +254,21 @@ if pagina == "Visualización MRI":
 
    
     
-# --- Sección "Resultados de Segmentación" ---
+# --- Sección "Resultados de Segmentación" modificada ---
 elif pagina == "Resultados de Segmentación":
     st.title("Resultados de Segmentación")
-    st.write("Aquí se mostrarán los resultados de la segmentación del tumor. Sube el archivo apilado (stack) para segmentar.")
+    st.write("Sube el archivo apilado (stack) para segmentar.")
+
+    # ... (carga del modelo) ... 
 
     uploaded_stack = st.file_uploader(
-        "Sube el archivo apilado de MRI (.npy o .nii/.nii.gz)", 
+        "Sube el archivo apilado de MRI (.npy o .nii/.nii.gz)",
         type=["npy", "nii", "nii.gz"]
     )
 
     if uploaded_stack is not None:
         try:
-            # Cargar datos 
-            if uploaded_stack.name.endswith('.npy'):
-                img_data = np.load(uploaded_stack)
-            elif uploaded_stack.name.endswith(('.nii', '.nii.gz')):
-                with tempfile.NamedTemporaryFile(delete=False, suffix=".nii.gz") as temp_file:
-                    temp_file.write(uploaded_stack.read())
-                    temp_file.flush() 
-                    nii_img = nib.load(temp_file.name)
-                    img_data = nii_img.get_fdata()  
-                    st.write("Archivo NIfTI cargado correctamente.")
-                os.remove(temp_file.name)
-            else:
-                st.error("Tipo de archivo no soportado. Por favor, carga un archivo .npy o .nii/.nii.gz.")
-                st.stop()  
+            # ... (carga de datos - igual que antes) ...
 
             # Comprobaciones de dimensiones
             if len(img_data.shape) != 4:
@@ -292,28 +278,35 @@ elif pagina == "Resultados de Segmentación":
             img_preprocessed = preprocess_volume(img_data)
 
             if img_preprocessed is not None and model is not None:
-                # --- Control deslizante ---
+                
+                st.write("Visualización y segmentación:")
+
+                # --- Un solo slider para ambos: MRI original y segmentación ---
                 slice_idx = st.slider(
-                    "Selecciona un corte axial para segmentar",
+                    "Selecciona un corte axial:",
                     0,
-                    img_preprocessed.shape[2] - 1,
+                    img_preprocessed.shape[2] - 1, 
                     img_preprocessed.shape[2] // 2,
                 )
 
-                with torch.no_grad():
-                    # --- Seleccionar el corte ---
-                    img_slice = img_preprocessed[:, :, slice_idx, :]
+                # --- Mostrar ambas vistas lado a lado (columnas) ---
+                col1, col2 = st.columns(2)
 
-                    # --- Inferencia para un solo corte ---
-                    img_tensor = torch.tensor(img_slice).unsqueeze(0).float()
-                    img_tensor = img_tensor.permute(0, 3, 1, 2)  # Ajustar dimensiones para el modelo 
-                    pred = model(img_tensor)
+                with col1:
+                    # --- MRI Original ---
+                    plot_mri_slices(img_preprocessed[:, :, :, 0], "MRI Original", slice_idx)  
 
-                    # --- Procesar 'pred' ---
-                    pred = torch.sigmoid(pred).squeeze(0).cpu().numpy() 
+                with col2: 
+                    with torch.no_grad():
+                        # --- Segmentación ---
+                        img_slice = img_preprocessed[:, :, slice_idx, :]
+                        img_tensor = torch.tensor(img_slice).unsqueeze(0).float()
+                        img_tensor = img_tensor.permute(0, 3, 1, 2)  # Ajustar dimensiones
+                        pred = model(img_tensor)
+                        pred = torch.sigmoid(pred).squeeze(0).cpu().numpy()
 
-                # --- Visualización ---
-                plot_mri_slices(img_preprocessed[:, :, :, 0], "T1 Original", overlay=pred)
+                    # --- MRI Segmentada ---
+                    plot_mri_slices(img_preprocessed[:, :, :, 0], "MRI Segmentada", slice_idx, overlay=pred) 
 
         except Exception as e:
             st.error(f"Error durante la segmentación: {e}")
