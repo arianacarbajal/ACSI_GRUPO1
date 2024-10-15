@@ -255,14 +255,15 @@ elif pagina == "Resultados de Segmentación":
 
             # Si es un archivo .nii o .nii.gz
             elif uploaded_stack.name.endswith(('.nii', '.nii.gz')):
-                # Leer el archivo usando BytesIO
-                file_bytes = uploaded_stack.read()
-                file_obj = io.BytesIO(file_bytes)
+                # **Temporary file handling for NIfTI**
+                with tempfile.NamedTemporaryFile(delete=False, suffix=".nii.gz") as temp_file:
+                    temp_file.write(uploaded_stack.read())
+                    temp_file.flush()  
 
-                # Cargar el archivo NIfTI desde el objeto BytesIO
-                nii_img = nib.load(file_obj)
-                img_data = nii_img.get_fdata()  # Convertir a array de NumPy
-                st.write("Archivo NIfTI cargado correctamente.")
+                    # Load using the temporary file's name
+                    nii_img = nib.load(temp_file.name)
+                    img_data = nii_img.get_fdata()  
+                    st.write("Archivo NIfTI cargado correctamente.")
 
             # Verificar las dimensiones del archivo cargado
             if len(img_data.shape) < 3:
