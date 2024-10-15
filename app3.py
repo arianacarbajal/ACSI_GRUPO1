@@ -12,26 +12,41 @@ import os
 # Configuración de la página
 st.set_page_config(page_title="MRI Visualization and Segmentation", layout="wide")
 
-# Función para descargar el modelo desde Google Drive
+# Función para descargar el modelo desde Google Drive (con manejo de archivos grandes)
 @st.cache_data
-def download_model(url, output_path):
-    if not os.path.exists(output_path):
-        try:
-            response = requests.get(url)
-            response.raise_for_status()
-            with open(output_path, 'wb') as f:
-                f.write(response.content)
-            st.success(f"Modelo descargado y guardado en {output_path}")
-        except Exception as e:
-            st.error(f"Error al descargar el modelo: {str(e)}")
-            return None
-    else:
-        st.info(f"Modelo ya disponible en {output_path}")
-    return output_path
+def download_model_from_google_drive(id, destination):
+    URL = "https://docs.google.com/uc?export=download"
 
-# URL del modelo (asegúrate de que esta URL sea accesible y válida)
-model_url = 'https://drive.google.com/uc?export=download&id=1r5EWxoBiCMF7ug6jly-3Oma4C9N4ZhGi'
-model_path = download_model(model_url, 'modelo_entrenado.pth')
+    session = requests.Session()
+
+    response = session.get(URL, params={'id': id}, stream=True)
+    token = get_confirm_token(response)
+
+    if token:
+        params = {'id': id, 'confirm': token}
+        response = session.get(URL, params=params, stream=True)
+
+    save_response_content(response, destination)
+    return destination
+
+def get_confirm_token(response):
+    for key, value in response.cookies.items():
+        if key.startswith('download_warning'):
+            return value
+    return None
+
+def save_response_content(response, destination):
+    CHUNK_SIZE = 32768
+
+    with open(destination, "wb") as f:
+        for chunk in response.iter_content(CHUNK_SIZE):
+            if chunk:  # Filtro de bloques vacíos
+                f.write(chunk)
+
+# Descargar el archivo .pth desde Google Drive
+model_id = '1r5EWxoBiCMF7ug6jly-3Oma4C9N4ZhGi'
+model_path = 'modelo_entrenado.pth'
+download_model_from_google_drive(model_id, model_path)
 
 # Verificación de la validez del modelo descargado
 def is_valid_model_file(filepath):
@@ -271,4 +286,5 @@ elif pagina == "Planificación Quirúrgica":
 # Mensaje de pie de página
 st.sidebar.markdown("---")
 st.sidebar.info("Desarrollado por el Grupo 1 de ACSI")
+
 
