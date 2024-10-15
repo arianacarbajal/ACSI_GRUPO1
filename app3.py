@@ -10,6 +10,7 @@ from scipy.ndimage import zoom
 import os
 import gdown
 import traceback
+import io
 
 # --- Configuración de la página ---
 st.set_page_config(page_title="MRI Visualization and Segmentation", layout="wide")
@@ -309,9 +310,6 @@ elif pagina == "Resultados de Segmentación":
                     st.write(traceback.format_exc())
         except ValueError as e:
             st.error(str(e))
-
-
-
  
     # --- Página de Leyendas ---
     elif pagina == "Leyendas":
