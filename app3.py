@@ -18,16 +18,16 @@ st.set_page_config(page_title="MRI Visualization and Segmentation", layout="wide
 MODEL_ID = '1r5EWxoBiCMF7ug6jly-3Oma4C9N4ZhGi' 
 MODEL_PATH = 'modelo_entrenado.pth' 
 
-# --- Definición del modelo U-Net 3D ---
+# --- Definición del modelo U-Net (Antes en model.py) ---
 class DoubleConv(nn.Module):
     def __init__(self, in_channels, out_channels):
         super(DoubleConv, self).__init__()
         self.conv = nn.Sequential(
-            nn.Conv3d(in_channels, out_channels, kernel_size=3, padding=1),
-            nn.BatchNorm3d(out_channels), 
+            nn.Conv2d(in_channels, out_channels, kernel_size=3, padding=1),
+            nn.BatchNorm2d(out_channels),
             nn.ReLU(inplace=True),
-            nn.Conv3d(out_channels, out_channels, kernel_size=3, padding=1),
-            nn.BatchNorm3d(out_channels), 
+            nn.Conv2d(out_channels, out_channels, kernel_size=3, padding=1),
+            nn.BatchNorm2d(out_channels),
             nn.ReLU(inplace=True),
         )
 
@@ -39,8 +39,7 @@ class Down(nn.Module):
     def __init__(self, in_channels, out_channels):
         super(Down, self).__init__()
         self.maxpool_conv = nn.Sequential(
-            nn.MaxPool3d(2),
-            DoubleConv(in_channels, out_channels)
+            nn.MaxPool2d(2), DoubleConv(in_channels, out_channels)
         )
 
     def forward(self, x):
@@ -50,24 +49,23 @@ class Down(nn.Module):
 class Up(nn.Module):
     def __init__(self, in_channels, out_channels):
         super(Up, self).__init__()
-        self.up = nn.Upsample(scale_factor=2, mode="trilinear", align_corners=True)
+        self.up = nn.Upsample(scale_factor=2, mode="bilinear", align_corners=True)
         self.conv = DoubleConv(in_channels, out_channels)
 
     def forward(self, x1, x2): 
         x1 = self.up(x1)
-        # Ajustar dimensiones en 3D (padding)
+        # Ajustar dimensiones si es necesario (padding)
         diffY = x2.size()[2] - x1.size()[2]
         diffX = x2.size()[3] - x1.size()[3]
-        diffZ = x2.size()[4] - x1.size()[4]  
         x1 = F.pad(
-            x1, [diffX // 2, diffX - diffX // 2, diffY // 2, diffY - diffY // 2, diffZ // 2, diffZ - diffZ // 2]
+            x1, [diffX // 2, diffX - diffX // 2, diffY // 2, diffY - diffY // 2]
         )
         x = torch.cat([x2, x1], dim=1)
         return self.conv(x)
 
 
 class UNet(nn.Module):
-    def __init__(self, n_channels=4, n_classes=3): 
+    def __init__(self, n_channels=4, n_classes=3):
         super(UNet, self).__init__()
         self.inc = DoubleConv(n_channels, 64)
         self.down1 = Down(64, 128)
@@ -78,7 +76,7 @@ class UNet(nn.Module):
         self.up2 = Up(512, 128)
         self.up3 = Up(256, 64)
         self.up4 = Up(128, 64)
-        self.outc = nn.Conv3d(64, n_classes, kernel_size=1)
+        self.outc = nn.Conv2d(64, n_classes, kernel_size=1)
 
     def forward(self, x):
         x1 = self.inc(x)
@@ -161,7 +159,7 @@ def preprocess_volume(volume, target_shape=(128, 128, 128)):
 
         st.write(
             f"Shape del volumen después de preprocess_volume: {resized_volume_4d.shape}"
-        ) 
+        )  # Agrega esta línea
 
         for i in range(modalities):
             non_zero_mask = resized_volume_4d[..., i] > 0
@@ -176,9 +174,9 @@ def preprocess_volume(volume, target_shape=(128, 128, 128)):
         st.error("El volumen no tiene el número esperado de dimensiones (4D).")
         return None
 
-def plot_mri_slices(data, modality): 
-    """Muestra cortes axiales de un volumen 3D."""
+def plot_mri_slices(data, modality, overlay=None):
     st.subheader(f"{modality} MRI")
+
     slice_idx = st.slider(
         f"Selecciona un corte axial para {modality}",
         0,
@@ -186,7 +184,12 @@ def plot_mri_slices(data, modality):
         data.shape[2] // 2,
     )
     fig, ax = plt.subplots()
-    ax.imshow(data[:, :, slice_idx], cmap="gray") 
+    ax.imshow(data[:, :, slice_idx], cmap="gray")
+
+    # Mostrar overlay si se proporciona
+    if overlay is not None:
+        ax.imshow(overlay[:, :, slice_idx], cmap="hot", alpha=0.6)
+
     ax.axis("off")
     st.pyplot(fig)
 
@@ -199,7 +202,7 @@ def load_model():
         download_model_from_gdrive(MODEL_ID, MODEL_PATH)
 
     try:
-        model = UNet(n_channels=4, n_classes=3) 
+        model = UNet(n_channels=4, n_classes=3)  # Instancia el modelo
         st.write(f"Intentando cargar el modelo desde {MODEL_PATH}...")
         state_dict = torch.load(MODEL_PATH, map_location=torch.device("cpu"))
         model.load_state_dict(state_dict)
@@ -208,13 +211,14 @@ def load_model():
         return model
     except Exception as e:
         st.error(f"Error al cargar el modelo: {str(e)}")
-        st.write(traceback.format_exc()) 
+        st.write(traceback.format_exc())  # Imprime el traceback en caso de error
     return None
 
 
 # --- Lógica principal de la aplicación ---
 if __name__ == "__main__":
-    model = load_model()
+    # Intenta cargar el modelo al iniciar
+    model = load_model()  
 
     # Barra lateral
     st.sidebar.title("Navegación")
@@ -229,74 +233,64 @@ if __name__ == "__main__":
         ],
     )
 
-    # --- Página de Visualización MRI ---
+    # Página de visualización MRI
     if pagina == "Visualización MRI":
         st.title("Visualización de MRI")
-        st.write("Sube los archivos NIfTI de diferentes modalidades para visualizar los cortes.")
+        st.write(
+            "Sube los archivos NIfTI de diferentes modalidades para visualizar los cortes."
+        )
 
-        # Subida de las 4 imágenes por separado
-        t1_file = st.file_uploader("Sube el archivo T1-weighted (T1)", type=["nii", "nii.gz"])
-        t1c_file = st.file_uploader("Sube el archivo T1 con contraste (T1c)", type=["nii", "nii.gz"])
-        t2_file = st.file_uploader("Sube el archivo T2-weighted (T2)", type=["nii", "nii.gz"])
-        flair_file = st.file_uploader("Sube el archivo T2-FLAIR", type=["nii", "nii.gz"])
+        uploaded_files = st.file_uploader(
+            "Sube los archivos MRI (T1, T2, T1c, FLAIR) en formato NIfTI",
+            type=["nii", "nii.gz"],
+            accept_multiple_files=True,  # Permite subir múltiples archivos
+        )
 
-        # Visualizar cada imagen por separado si se ha subido
-        if t1_file:
-            t1_data = load_nifti(t1_file)
-            if t1_data is not None:
-                plot_mri_slices(t1_data, "T1-weighted")
+        if uploaded_files:
+            # Combinar los archivos en un volumen 4D
+            img_data = np.stack([load_nifti(file) for file in uploaded_files], axis=-1)
+            if img_data is not None:
+                plot_mri_slices(img_data, "MRI Multimodalidad")
 
-        if t1c_file:
-            t1c_data = load_nifti(t1c_file)
-            if t1c_data is not None:
-                plot_mri_slices(t1c_data, "T1c (con contraste)")
-
-        if t2_file:
-            t2_data = load_nifti(t2_file)
-            if t2_data is not None:
-                plot_mri_slices(t2_data, "T2-weighted")
-
-        if flair_file:
-            flair_data = load_nifti(flair_file)
-            if flair_data is not None:
-                plot_mri_slices(flair_data, "T2-FLAIR")
-
-    # --- Página de Resultados de Segmentación ---
+    # Página de Resultados de Segmentación
     elif pagina == "Resultados de Segmentación":
         st.title("Resultados de Segmentación")
-        st.write("Aquí se mostrarán los resultados de la segmentación del tumor. Sube el archivo MRI apilado para segmentar.")
+        st.write(
+            "Aquí se mostrarán los resultados de la segmentación del tumor. Sube el archivo MRI para segmentar."
+        )
 
-        # Subida de la imagen apilada
         uploaded_file = st.file_uploader(
-            "Sube el archivo MRI apilado (T1, T2, T1c, FLAIR) en formato NIfTI",
+            "Sube el archivo MRI apilado (T1, T2, FLAIR, etc.) en formato NIfTI",
             type=["nii", "nii.gz"],
         )
 
-        if uploaded_file:
+        if uploaded_file is not None:
             img_data = load_nifti(uploaded_file)
             if img_data is not None:
                 st.write("Imagen cargada correctamente.")
 
                 try:
+                    # Preprocesamiento
                     img_preprocessed = preprocess_volume(img_data)
-                    st.write(f"Shape después de preprocess_volume: {img_preprocessed.shape}")
+                    st.write(
+                        f"Shape después de preprocess_volume: {img_preprocessed.shape}"
+                    ) 
 
                     if img_preprocessed is not None and model is not None:
                         st.write("Realizando la segmentación...")
-
                         with torch.no_grad():
-                            img_tensor = torch.tensor(img_preprocessed).unsqueeze(0).float()  
-                            pred = model(img_tensor)
-                            pred = torch.sigmoid(pred).squeeze().cpu().numpy() 
-
-                        plot_mri_slices(img_preprocessed[..., 0], "T1 Original", overlay=pred)
+                            img_tensor = torch.tensor(img_preprocessed).unsqueeze(0).float()
+                            pred = model(img_tensor) 
+                            pred = torch.sigmoid(pred).squeeze().cpu().numpy()
+                        # Visualización
+                        plot_mri_slices(img_preprocessed[..., 0], "MRI Original", overlay=pred)
 
                 except Exception as e:
                     st.error(f"Error durante la segmentación: {e}")
-                    st.write(traceback.format_exc())
+                    st.write(traceback.format_exc()) 
             else:
-                st.error("Error al cargar la imagen.")
-                
+                st.error("No se pudo cargar la imagen para la segmentación.")
+
     # --- Página de Leyendas ---
     elif pagina == "Leyendas":
         st.title("Leyendas de Segmentación")
