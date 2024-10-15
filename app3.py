@@ -1,4 +1,4 @@
-import streamlit as st 
+import streamlit as st
 import nibabel as nib
 import numpy as np
 import matplotlib.pyplot as plt
@@ -6,7 +6,6 @@ import torch
 from torch.nn import functional as F
 import tempfile
 from scipy.ndimage import zoom
-import requests
 import os
 import gdown
 
@@ -15,19 +14,42 @@ st.set_page_config(page_title="MRI Visualization and Segmentation", layout="wide
 
 # Función para descargar el modelo desde Google Drive
 @st.cache_data
-def download_model(url, output_path):
-    if not os.path.exists(output_path):
-        try:
-            gdown.download(url, output_path, quiet=False)
-            st.success(f"Modelo descargado y guardado en {output_path}")
-        except Exception as e:
-            st.error(f"Error al descargar el modelo: {str(e)}")
-            return None
-    return output_path
+def download_model_from_gdrive(model_id, model_path):
+    try:
+        gdown.download(f'https://drive.google.com/uc?id={model_id}', model_path, quiet=False)
+        st.success(f"Modelo descargado y guardado en {model_path}")
+    except Exception as e:
+        st.error(f"Error al descargar el modelo: {str(e)}")
+    return model_path
 
-# URL del modelo en Google Drive
-model_url = 'https://drive.google.com/uc?id=1r5EWxoBiCMF7ug6jly-3Oma4C9N4ZhGi'
-model_path = download_model(model_url, 'modelo_entrenado.pth')
+# Descargar el archivo .pth desde Google Drive
+model_id = '1r5EWxoBiCMF7ug6jly-3Oma4C9N4ZhGi'
+model_path = 'modelo_entrenado.pth'
+st.write("Intentando descargar el modelo...")  # Mensaje de depuración
+model_path = download_model_from_gdrive(model_id, model_path)
+
+# Verificación de la validez del modelo descargado
+def is_valid_model_file(filepath):
+    try:
+        with open(filepath, 'rb') as f:
+            first_bytes = f.read(4)
+            if first_bytes.startswith(b'\x80\x04'):  # Bytes mágicos para archivos pickle
+                return True
+            else:
+                return False
+    except Exception as e:
+        st.error(f"Error al verificar el archivo del modelo: {str(e)}")
+        return False
+
+# Validar si el modelo es un archivo válido de PyTorch
+if model_path and os.path.exists(model_path):
+    st.write(f"Archivo del modelo encontrado: {model_path}")
+    if is_valid_model_file(model_path):
+        st.write("Archivo del modelo verificado correctamente.")
+    else:
+        st.error("El archivo del modelo no es válido.")
+else:
+    st.error(f"No se encontró el archivo del modelo en {model_path}.")
 
 # Crear las páginas en la barra lateral
 st.sidebar.title("Navegación")
@@ -120,15 +142,18 @@ def plot_mri_slices(data, modality):
 # Cargar el modelo
 @st.cache_resource
 def load_model():
+    st.write("Cargando el modelo...")  # Mensaje de depuración
     if not os.path.exists(model_path):
         st.error(f"El archivo del modelo '{model_path}' no existe.")
         return None
 
     try:
         model = SimpleSegmentationModel()
+        st.write(f"Intentando cargar el modelo desde {model_path}...")  # Mensaje de depuración
         state_dict = torch.load(model_path, map_location=torch.device('cpu'))
         model.load_state_dict(state_dict)
         model.eval()
+        st.success("Modelo cargado correctamente.")
         return model
     except Exception as e:
         st.error(f"Error al cargar el modelo: {str(e)}")
@@ -177,7 +202,8 @@ elif pagina == "Resultados de Segmentación":
         img_data = load_nifti(img_file)
         if img_data is not None:
             st.write("Imagen cargada correctamente.")
-            
+
+            # Preprocesar la imagen
             img_preprocessed = preprocess_volume(img_data)
 
             if img_preprocessed is not None:
@@ -185,15 +211,19 @@ elif pagina == "Resultados de Segmentación":
 
                 model = load_model()
                 if model:
-                    with torch.no_grad():
-                        pred = model(img_tensor)
-                        pred = torch.sigmoid(pred).squeeze().numpy()
+                    try:
+                        st.write("Realizando la segmentación...")
+                        with torch.no_grad():
+                            pred = model(img_tensor)
+                            pred = torch.sigmoid(pred).squeeze().numpy()
 
-                    slice_idx = st.slider("Selecciona un corte axial para visualizar la segmentación", 0, pred.shape[2] - 1, pred.shape[2] // 2)
-                    fig, ax = plt.subplots()
-                    ax.imshow(pred[:, :, slice_idx], cmap='hot', alpha=0.6)
-                    ax.axis('off')
-                    st.pyplot(fig)
+                        slice_idx = st.slider("Selecciona un corte axial para visualizar la segmentación", 0, pred.shape[2] - 1, pred.shape[2] // 2)
+                        fig, ax = plt.subplots()
+                        ax.imshow(pred[:, :, slice_idx], cmap='hot', alpha=0.6)
+                        ax.axis('off')
+                        st.pyplot(fig)
+                    except Exception as e:
+                        st.error(f"Error durante la segmentación: {str(e)}")
                 else:
                     st.error("No se pudo cargar el modelo para la segmentación.")
 
@@ -248,3 +278,4 @@ elif pagina == "Planificación Quirúrgica":
 # Mensaje de pie de página
 st.sidebar.markdown("---")
 st.sidebar.info("Desarrollado por el Grupo 1 de ACSI")
+
