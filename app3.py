@@ -189,27 +189,38 @@ if __name__ == "__main__":
     )
 
     # --- Página de Visualización MRI ---
-    if pagina == "Visualización MRI":
-        st.title("Visualización de MRI")
-        st.write(
-            "Sube los archivos NIfTI de diferentes modalidades para visualizar los cortes."
-        )
+    # Página de visualización MRI
+if pagina == "Visualización MRI":
+    st.title("Visualización de MRI")
+    st.write("Sube los archivos NIfTI de diferentes modalidades para visualizar los cortes.")
 
-        uploaded_files = st.file_uploader(
-            "Sube los archivos MRI (T1, T2, T1c, FLAIR) en formato NIfTI",
-            type=["nii", "nii.gz"],
-            accept_multiple_files=True,
-        )
+    t1_file = st.file_uploader("Sube el archivo T1-weighted (T1)", type=["nii", "nii.gz"])
+    t1c_file = st.file_uploader("Sube el archivo T1 con contraste (T1c)", type=["nii", "nii.gz"])
+    t2_file = st.file_uploader("Sube el archivo T2-weighted (T2)", type=["nii", "nii.gz"])
+    flair_file = st.file_uploader("Sube el archivo T2-FLAIR", type=["nii", "nii.gz"])
 
-        if uploaded_files:
-            # Combinar los archivos en un volumen 4D
-            img_data, img_shape = zip(*[load_nifti(file) for file in uploaded_files])
-            img_data = np.stack(img_data, axis=-1) if img_data else None
+    if t1_file or t1c_file or t2_file or flair_file:
+        if t1_file:
+            t1_data = load_nifti(t1_file)
+            if t1_data is not None:
+                plot_mri_slices(t1_data, "T1-weighted")
 
-            st.write(f"Dimensiones de los datos cargados: {img_shape}")
-            
-            if img_data is not None:
-                plot_mri_slices(img_data, "MRI Multimodalidad")
+        if t1c_file:
+            t1c_data = load_nifti(t1c_file)
+            if t1c_data is not None:
+                plot_mri_slices(t1c_data, "T1c (con contraste)")
+
+        if t2_file:
+            t2_data = load_nifti(t2_file)
+            if t2_data is not None:
+                plot_mri_slices(t2_data, "T2-weighted")
+
+        if flair_file:
+            flair_data = load_nifti(flair_file)
+            if flair_data is not None:
+                plot_mri_slices(flair_data, "T2-FLAIR")
+
+   
 
     # --- Página de Resultados de Segmentación ---
     elif pagina == "Resultados de Segmentación":
