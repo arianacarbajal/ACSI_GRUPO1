@@ -156,13 +156,13 @@ def resize_volume_to_shape(volume, target_shape):
 
 
 def plot_mri_slices(data, modality, overlay=None):
-    """Muestra cortes axiales de un volumen 3D."""
+    """Muestra cortes axiales de un volumen 3D, con la posibilidad de una superposición."""
     st.subheader(f"{modality} MRI")
-    
+
     if len(data.shape) < 3:
         st.error(f"Error: Se esperaban al menos 3 dimensiones en los datos de imagen, pero se encontraron {len(data.shape)}")
         return
-    
+
     slice_idx = st.slider(
         f"Selecciona un corte axial para {modality}",
         0,
@@ -171,13 +171,16 @@ def plot_mri_slices(data, modality, overlay=None):
     )
 
     fig, ax = plt.subplots()
-    ax.imshow(data[:, :, slice_idx], cmap="gray")
+    ax.imshow(data[:, :, slice_idx], cmap="gray")  # Mostrar la imagen base en escala de grises
 
     if overlay is not None:
-        if overlay.shape[:2] != data.shape[:2]:
+        # --- Corrección en el manejo del overlay ---
+        if overlay.shape[1:] != data.shape[:2]: # Comparamos (alto, ancho) 
             st.error(f"Error: Las formas de la imagen y la máscara no coinciden: {data.shape} vs {overlay.shape}")
+            return
         else:
-            ax.imshow(overlay[:, :, slice_idx], cmap="hot", alpha=0.6)
+            # Mostrar el canal 0 de 'overlay' usando el índice correcto
+            ax.imshow(overlay[0, :, :], cmap="hot", alpha=0.6)  
 
     ax.axis("off")
     st.pyplot(fig)
