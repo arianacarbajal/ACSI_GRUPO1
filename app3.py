@@ -29,7 +29,7 @@ def download_model(url, output_path):
     return output_path
 
 # URL del modelo (asegúrate de que esta URL sea accesible y válida)
-model_url = 'https://drive.google.com/uc?export=download&id=1r5EWxoBiCMF7ug6jly-3Oma4C9N4ZhGi'
+model_url = 'https://drive.google.com/drive/folders/12z89cWzTQDESyytgC3qgtSaF2e5KNbmW?usp=drive_link'
 model_path = download_model(model_url, 'modelo_entrenado.pth')
 
 # Crear las páginas en la barra lateral
