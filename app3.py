@@ -18,10 +18,6 @@ st.set_page_config(page_title="MRI Visualization and Segmentation", layout="wide
 MODEL_ID = '1r5EWxoBiCMF7ug6jly-3Oma4C9N4ZhGi'
 MODEL_PATH = 'modelo_entrenado.pth'
 
-# --- Rango de cortes para entrenamiento y segmentación ---
-START_SLICE = 40
-END_SLICE = 130
-
 # --- Definición del modelo U-Net 2D ---
 class DoubleConv(nn.Module):
     def __init__(self, in_channels, out_channels):
@@ -37,37 +33,6 @@ class DoubleConv(nn.Module):
 
     def forward(self, x):
         return self.conv(x)
-
-
-class Down(nn.Module):
-    def __init__(self, in_channels, out_channels):
-        super(Down, self).__init__()
-        self.maxpool_conv = nn.Sequential(
-            nn.MaxPool2d(2),
-            DoubleConv(in_channels, out_channels)
-        )
-
-    def forward(self, x):
-        return self.maxpool_conv(x)
-
-
-class Up(nn.Module):
-    def __init__(self, in_channels, out_channels):
-        super(Up, self).__init__()
-        self.up = nn.Upsample(scale_factor=2, mode="bilinear", align_corners=True)
-        self.conv = DoubleConv(in_channels, out_channels)
-
-    def forward(self, x1, x2):
-        x1 = self.up(x1)
-        # Ajustar dimensiones en 2D (padding)
-        diffY = x2.size()[2] - x1.size()[2]
-        diffX = x2.size()[3] - x1.size()[3]
-        x1 = F.pad(
-            x1, [diffX // 2, diffX - diffX // 2, diffY // 2, diffY - diffY // 2]
-        )
-        x = torch.cat([x2, x1], dim=1)
-        return self.conv(x)
-
 
 class UNet(nn.Module):
     def __init__(self, n_channels=4, n_classes=3):
@@ -121,11 +86,11 @@ def load_nifti(file):
 
 def preprocess_volume(volume, target_shape=(128, 128)):
     """Preprocesa el volumen 4D completo (todas las modalidades juntas)."""
+    st.write(f"Verificando las dimensiones del volumen cargado: {volume.shape}")
 
-    if len(volume.shape) == 4:  
-        volume = volume[:, :, START_SLICE:END_SLICE, :]  # Recortar el volumen
+    if len(volume.shape) == 4:  # Debe ser 4D (x, y, z, canales)
+        volume = volume[:, :, 40:130, :]  # Recortar el volumen
 
-        # Calcula el target_shape basandose en la primera modalidad
         target_shape_3d = (target_shape[0], target_shape[1], volume.shape[2]) 
         modalities = volume.shape[-1]
         resized_volumes = []
@@ -205,11 +170,9 @@ def load_model():
         st.write(traceback.format_exc())  # Imprime el traceback en caso de error
     return None
 
-
 # --- Lógica principal de la aplicación ---
 if __name__ == "__main__":
 
-    # Carga el modelo de segmentación
     model = load_model()
 
     # Barra lateral
@@ -235,7 +198,7 @@ if __name__ == "__main__":
         uploaded_files = st.file_uploader(
             "Sube los archivos MRI (T1, T2, T1c, FLAIR) en formato NIfTI",
             type=["nii", "nii.gz"],
-            accept_multiple_files=True,  # Permite subir múltiples archivos
+            accept_multiple_files=True,
         )
 
         if uploaded_files:
@@ -274,24 +237,18 @@ if __name__ == "__main__":
                     if img_preprocessed is not None and model is not None:
                         st.write("Realizando la segmentación...")
                         with torch.no_grad():
-                            # Seleccionar un slice del volumen preprocesado para segmentar
                             slice_idx = st.slider(
                                 "Selecciona un corte axial para segmentar",
                                 0,
                                 img_preprocessed.shape[2] - 1,  
                                 img_preprocessed.shape[2] // 2,
                             )
-                            # Extraer el slice
                             img_slice = img_preprocessed[:, :, slice_idx, :]  
-                            # Agregar la dimensión de batch y convertir a tensor
                             img_tensor = torch.tensor(img_slice).unsqueeze(0).float()
-                            # Reordenar dimensiones: [batch_size, canales, alto, ancho]
                             img_tensor = img_tensor.permute(0, 3, 1, 2)  
-                            # Inferencia del modelo
                             pred = model(img_tensor)
                             pred = torch.sigmoid(pred).squeeze().cpu().numpy()  
 
-                        # Visualización 
                         plot_mri_slices(img_preprocessed[:, :, slice_idx, 0], "T1 Original", overlay=pred) 
 
                 except Exception as e:
@@ -322,7 +279,7 @@ if __name__ == "__main__":
         Manual de Uso del Visualizador de MRI:
 
         1. Cargar Archivos: 
-            - Para visualizar:  Sube los archivos MRI en formato NIfTI para cada modalidad (T1, T2, T1c, FLAIR) en la página "Visualización MRI". Puedes subir un único archivo que contenga todas las modalidades o cada modalidad por separado. 
+            - Para visualizar: Sube los archivos MRI en formato NIfTI para cada modalidad (T1, T2, T1c, FLAIR) en la página "Visualización MRI". Puedes subir un único archivo que contenga todas las modalidades o cada modalidad por separado. 
             - Para segmentar: Sube un único archivo que contenga las 4 modalidades (T1, T2, T1c, FLAIR) en la página "Resultados de Segmentación".
         2. Visualización de Cortes: Usa el control deslizante para seleccionar el corte axial que desees visualizar.
         3. Segmentación: Una vez que hayas cargado un archivo válido, la segmentación se ejecutará automáticamente y se mostrará junto a la imagen original.
@@ -359,3 +316,4 @@ if __name__ == "__main__":
     # --- Mensaje de pie de página ---
     st.sidebar.markdown("---")
     st.sidebar.info("Desarrollado por el Grupo 1 de ACSI")
+
