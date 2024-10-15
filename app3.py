@@ -304,7 +304,7 @@ elif pagina == "Resultados de Segmentación":
                             pred = model(img_tensor)
                             pred = torch.sigmoid(pred).squeeze().cpu().numpy()  # Convertir a numpy y aplicar sigmoide
 
-                        plot_mri_slices(img_preprocessed[:, :, slice_idx, 0], "T1 Original", overlay=pred
+                        plot_mri_slices(img_preprocessed[:, :, slice_idx, 0], "T1 Original", overlay=pred)
 
                 except Exception as e:
                     st.error(f"Error durante la segmentación: {e}")
