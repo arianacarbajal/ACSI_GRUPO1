@@ -301,10 +301,16 @@ elif pagina == "Resultados de Segmentación":
                             img_slice = img_preprocessed[:, :, slice_idx, :]  # Tomar un corte axial de todas las modalidades
                             img_tensor = torch.tensor(img_slice).unsqueeze(0).float()  # Añadir batch dimension
                             img_tensor = img_tensor.permute(0, 3, 1, 2)  # Reorganizar para (batch, canales, height, width)
-                            pred = model(img_tensor)
-                            pred = torch.sigmoid(pred).squeeze().cpu().numpy()  # Convertir a numpy y aplicar sigmoide
-
-                        plot_mri_slices(img_preprocessed[:, :, slice_idx, 0], "T1 Original", overlay=pred)
+                            pred = model(img_tensor) 
+                            print("Forma de 'pred' antes de 'squeeze()':", pred.shape)  # Imprime la forma para verificar
+                            pred = torch.sigmoid(pred).squeeze().cpu().numpy()
+                            print("Forma de 'pred' después de 'squeeze()':", pred.shape)  # Imprime la forma para verificar
+                        
+                            # Si 'squeeze()' elimina una dimensión necesaria:
+                            if len(pred.shape) == 2:  
+                                pred = np.expand_dims(pred, axis=2) 
+                        
+                            plot_mri_slices(img_preprocessed[:, :, slice_idx, 0], "T1 Original", overlay=pred)
 
                 except Exception as e:
                     st.error(f"Error durante la segmentación: {e}")
