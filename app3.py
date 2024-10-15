@@ -102,36 +102,47 @@ def load_nifti(file):
     return None, None
 
 def preprocess_volume(volume, target_shape=(128, 128)):
-    """Preprocesa el volumen 4D completo (todas las modalidades juntas)."""
+    """
+    Preprocesa un volumen 4D (o 3D si se trata de un solo canal) para que sea compatible con 
+    el modelo U-Net 2D. 
+
+    Args:
+        volume (np.array): El volumen a preprocesar. Puede ser 3D (alto, ancho, profundidad)
+                           o 4D (alto, ancho, profundidad, canales).
+        target_shape (tuple): La forma deseada para las dimensiones alto y ancho 
+                             después del preprocesamiento (por defecto: (128, 128)).
+
+    Returns:
+        np.array: El volumen preprocesado con forma (alto, ancho, profundidad) 
+                  o (alto, ancho, profundidad, canales), dependiendo del volumen de entrada. 
+    """
     st.write(f"Verificando las dimensiones del volumen cargado: {volume.shape}")
 
-    if len(volume.shape) == 4:  # Debe ser 4D (x, y, z, canales)
-        volume = volume[:, :, 40:130, :]  # Recortar el volumen
+    # 1. Recortar la profundidad (si es necesario)
+    volume = volume[:, :, START_SLICE:END_SLICE] 
 
-        target_shape_3d = (target_shape[0], target_shape[1], volume.shape[2]) 
-        modalities = volume.shape[-1]
-        resized_volumes = []
-
-        for i in range(modalities):
-            modality_volume = volume[..., i]
-            resized_volume = resize_volume_to_shape(modality_volume, target_shape_3d)
-            resized_volumes.append(resized_volume)
-
-        resized_volume_4d = np.stack(resized_volumes, axis=-1) 
-
-        # --- Normalizar el volumen 4D completo ---
-        non_zero_mask = resized_volume_4d > 0
-        for i in range(modalities):
-            mean = np.mean(resized_volume_4d[..., i][non_zero_mask[..., i]])
-            std = np.std(resized_volume_4d[..., i][non_zero_mask[..., i]])
-            resized_volume_4d[..., i][non_zero_mask[..., i]] = (resized_volume_4d[..., i][non_zero_mask[..., i]] - mean) / std
-
-        st.write(f"Shape del volumen después de preprocess_volume: {resized_volume_4d.shape}")
-        return resized_volume_4d
-
+    # 2. Redimensionar las dimensiones espaciales (si es necesario)
+    if volume.shape[0] != target_shape[0] or volume.shape[1] != target_shape[1]:
+        st.write("Redimensionando volumen...")
+        factors = (target_shape[0] / volume.shape[0], 
+                   target_shape[1] / volume.shape[1], 
+                   1)  # Factor 1 para mantener la profundidad
+        if len(volume.shape) == 4:  # Si es 4D, redimensionamos cada canal
+            new_shape = (target_shape[0], target_shape[1], volume.shape[2], volume.shape[3])
+            volume = zoom(volume, factors + (1,), order=1)  # Interpolación lineal
+        else:
+            volume = zoom(volume, factors, order=1)
+        st.write(f"Nuevo tamaño del volumen después de redimensionar: {volume.shape}")
     else:
-        st.error(f"Error: Se esperaban 4 dimensiones, pero el volumen tiene {len(volume.shape)} dimensiones.")
-        return None
+        st.write("El volumen ya tiene la forma deseada. No se redimensionará.")
+
+    # 3. Normalizar (importante para el entrenamiento, pero opcional para la visualización)
+    # Nota: La normalización debe ser consistente con la que utilizaste durante el entrenamiento
+    # Ajusta el método de normalización a tus necesidades
+    volume = (volume - volume.min()) / (volume.max() - volume.min())
+
+    st.write(f"Shape del volumen después de preprocess_volume: {volume.shape}")
+    return volume
 
 def resize_volume_to_shape(volume, target_shape):
     """Redimensiona un volumen a la forma deseada."""
@@ -239,84 +250,70 @@ if pagina == "Visualización MRI":
 
    
     
-# --- Página de Resultados de Segmentación ---
 elif pagina == "Resultados de Segmentación":
     st.title("Resultados de Segmentación")
     st.write("Aquí se mostrarán los resultados de la segmentación del tumor. Sube el archivo apilado (stack) para segmentar.")
 
-    # Opción para subir un archivo .npy que contiene varias imágenes 2D apiladas o un archivo NIfTI (.nii, .nii.gz)
-    uploaded_stack = st.file_uploader("Sube el archivo apilado de MRI (.npy o .nii/.nii.gz)", type=["npy", "nii", "nii.gz"])
+    uploaded_stack = st.file_uploader(
+        "Sube el archivo apilado de MRI (.npy o .nii/.nii.gz)", 
+        type=["npy", "nii", "nii.gz"]
+    )
 
     if uploaded_stack:
         try:
-            # Si es un archivo .npy
+            # Cargar datos (manteniendo el manejo de archivos temporales para NIfTI)
             if uploaded_stack.name.endswith('.npy'):
                 img_data = np.load(uploaded_stack)
-
-            # Si es un archivo .nii o .nii.gz
             elif uploaded_stack.name.endswith(('.nii', '.nii.gz')):
-                # **Temporary file handling for NIfTI**
                 with tempfile.NamedTemporaryFile(delete=False, suffix=".nii.gz") as temp_file:
                     temp_file.write(uploaded_stack.read())
-                    temp_file.flush()  
-
-                    # Load using the temporary file's name
+                    temp_file.flush() 
                     nii_img = nib.load(temp_file.name)
                     img_data = nii_img.get_fdata()  
                     st.write("Archivo NIfTI cargado correctamente.")
+                os.remove(temp_file.name)
 
-            # Verificar las dimensiones del archivo cargado
-            if len(img_data.shape) < 3:
-                st.error("Error: Se esperaban al menos 3 dimensiones (e.g. X, Y, Z), pero se encontraron menos.")
-            else:
-                st.write(f"Dimensiones del archivo cargado: {img_data.shape}")
+            # ... (Aquí puedes añadir comprobaciones de dimensiones si es necesario) ...
 
-                # Si solo tiene 3 dimensiones (X, Y, Z), añadir una dimensión de canal
-                if len(img_data.shape) == 3:
-                    st.warning("El archivo cargado tiene solo 3 dimensiones (X, Y, Z). Se procederá como un stack sin canales adicionales.")
-                    img_data = np.expand_dims(img_data, axis=-1)  # Añadir un canal si es necesario
+            # Preprocesar el volumen
+            img_preprocessed = preprocess_volume(img_data) 
 
-                st.write(f"Shape después de la verificación: {img_data.shape}")
+            if img_preprocessed is not None and model is not None:
+                st.write("Realizando la segmentación...")
+                with torch.no_grad():
+                    slice_idx = st.slider(
+                        "Selecciona un corte axial para segmentar",
+                        0,
+                        img_preprocessed.shape[2] - 1,
+                        img_preprocessed.shape[2] // 2,
+                    )
+                    
+                    # Seleccionar un solo corte del volumen preprocesado
+                    img_slice = img_preprocessed[:, :, slice_idx, :]  
 
-                try:
-                    # Preprocesar el volumen apilado
-                    img_preprocessed = preprocess_volume(img_data)
-                    st.write(f"Shape después del preprocesamiento: {img_preprocessed.shape}")
+                    # Añadir dimensión de batch y ajustar dimensiones para el modelo U-Net 2D
+                    img_tensor = torch.tensor(img_slice).unsqueeze(0).float()  
+                    img_tensor = img_tensor.permute(0, 3, 1, 2)  # (batch, canales, alto, ancho)
 
-                    # Guardar el stack preprocesado como archivo .npy
-                    with tempfile.NamedTemporaryFile(delete=False, suffix=".npy") as temp_file:
-                        np.save(temp_file.name, img_preprocessed)
-                        st.success(f"Stack preprocesado guardado en {temp_file.name}")
+                    # Inferencia con el modelo
+                    pred = model(img_tensor)
+                    
+                    # Aplicar sigmoide y convertir a numpy
+                    pred = torch.sigmoid(pred).squeeze().cpu().numpy()  
+                    
+                    # Comprobar si 'pred' tiene la forma (alto, ancho, canales)
+                    st.write(f"Forma de 'pred' antes de plot_mri_slices: {pred.shape}") 
+                    
+                    # Asegurarse de que 'pred' tenga 3 dimensiones
+                    if len(pred.shape) == 2:
+                        pred = np.expand_dims(pred, axis=2)
 
-                    # Mostrar la segmentación realizada
-                    if img_preprocessed is not None and model is not None:
-                        st.write("Realizando la segmentación...")
-                        with torch.no_grad():
-                            slice_idx = st.slider(
-                                "Selecciona un corte axial para segmentar",
-                                0,
-                                img_preprocessed.shape[2] - 1,  # Tamaño de la tercera dimensión (eje axial)
-                                img_preprocessed.shape[2] // 2,
-                            )
-                            img_slice = img_preprocessed[:, :, slice_idx, :]  # Tomar un corte axial de todas las modalidades
-                            img_tensor = torch.tensor(img_slice).unsqueeze(0).float()  # Añadir batch dimension
-                            img_tensor = img_tensor.permute(0, 3, 1, 2)  # Reorganizar para (batch, canales, height, width)
-                            pred = model(img_tensor) 
-                            print("Forma de 'pred' antes de 'squeeze()':", pred.shape)  # Imprime la forma para verificar
-                            pred = torch.sigmoid(pred).squeeze().cpu().numpy()
-                            print("Forma de 'pred' después de 'squeeze()':", pred.shape)  # Imprime la forma para verificar
-                        
-                            # Si 'squeeze()' elimina una dimensión necesaria:
-                            if len(pred.shape) == 2:  
-                                pred = np.expand_dims(pred, axis=2) 
-                        
-                            plot_mri_slices(img_preprocessed[:, :, slice_idx, 0], "T1 Original", overlay=pred)
+                    # Visualizar (adaptar el índice de canal si es necesario)
+                    plot_mri_slices(img_preprocessed[:, :, slice_idx, 0], "T1 Original", overlay=pred)
 
-                except Exception as e:
-                    st.error(f"Error durante la segmentación: {e}")
-                    st.write(traceback.format_exc())
-        except ValueError as e:
-            st.error(str(e))
+        except Exception as e:
+            st.error(f"Error durante la segmentación: {e}")
+            st.write(traceback.format_exc())
  
     # --- Página de Leyendas ---
     elif pagina == "Leyendas":
