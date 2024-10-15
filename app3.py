@@ -1,4 +1,4 @@
-import streamlit as st
+import streamlit as st 
 import nibabel as nib
 import numpy as np
 import matplotlib.pyplot as plt
@@ -32,39 +32,59 @@ def load_nifti(file):
             return img.get_fdata()
     return None
 
-# Función de preprocesamiento
+# Función de preprocesamiento para manejar volúmenes 4D
 def preprocess_volume(volume, target_shape=(128, 128, 128)):
-    """Recorta y normaliza el volumen, ajustándolo al tamaño objetivo."""
-    non_zero_coords = np.array(np.nonzero(volume))
-    if non_zero_coords.size == 0:
-        st.error("El volumen no tiene suficientes datos no cero.")
+    """Recorta y normaliza el volumen, ajustándolo al tamaño objetivo. Maneja volúmenes 4D (modalidades)."""
+    
+    if len(volume.shape) == 4:  # Verificar si el volumen es 4D (x, y, z, canales)
+        modalities = volume.shape[-1]  # Número de modalidades
+        resized_volumes = []
+        
+        for i in range(modalities):  # Procesar cada modalidad individualmente
+            modality_volume = volume[..., i]  # Extraer una modalidad
+            non_zero_coords = np.array(np.nonzero(modality_volume))
+            
+            if non_zero_coords.size == 0:
+                st.error(f"La modalidad {i} no tiene suficientes datos no cero.")
+                return None
+            
+            min_coords = np.min(non_zero_coords, axis=1)
+            max_coords = np.max(non_zero_coords, axis=1)
+            cropped_volume = modality_volume[min_coords[0]:max_coords[0]+1,
+                                             min_coords[1]:max_coords[1]+1,
+                                             min_coords[2]:max_coords[2]+1]
+
+            if cropped_volume.shape[0] == 0 or cropped_volume.shape[1] == 0 or cropped_volume.shape[2] == 0:
+                st.error(f"Las dimensiones del volumen en la modalidad {i} no son válidas para redimensionar.")
+                return None
+
+            st.write(f"Dimensiones del volumen recortado para la modalidad {i}: {cropped_volume.shape}")
+
+            # Redimensionar al tamaño objetivo
+            factors = [target / float(dim) for target, dim in zip(target_shape, cropped_volume.shape)]
+            try:
+                resized_volume = zoom(cropped_volume, factors, order=1)
+            except Exception as e:
+                st.error(f"Error al redimensionar el volumen en la modalidad {i}: {e}")
+                return None
+            
+            resized_volumes.append(resized_volume)
+        
+        # Combinar las modalidades redimensionadas en un solo volumen 4D
+        resized_volume_4d = np.stack(resized_volumes, axis=-1)
+
+        # Normalizar cada modalidad por separado
+        for i in range(modalities):
+            non_zero_mask = resized_volume_4d[..., i] > 0
+            mean = np.mean(resized_volume_4d[..., i][non_zero_mask])
+            std = np.std(resized_volume_4d[..., i][non_zero_mask])
+            resized_volume_4d[..., i][non_zero_mask] = (resized_volume_4d[..., i][non_zero_mask] - mean) / std
+        
+        return resized_volume_4d
+    
+    else:
+        st.error("El volumen no tiene el número esperado de dimensiones (4D).")
         return None
-
-    min_coords = np.min(non_zero_coords, axis=1)
-    max_coords = np.max(non_zero_coords, axis=1)
-    cropped_volume = volume[min_coords[0]:max_coords[0]+1, min_coords[1]:max_coords[1]+1, min_coords[2]:max_coords[2]+1]
-
-    if cropped_volume.shape[0] == 0 or cropped_volume.shape[1] == 0 or cropped_volume.shape[2] == 0:
-        st.error("Las dimensiones del volumen no son válidas para redimensionar.")
-        return None
-
-    st.write("Dimensiones del volumen recortado:", cropped_volume.shape)
-
-    # Redimensionar el volumen al tamaño objetivo
-    factors = [target / float(dim) for target, dim in zip(target_shape, cropped_volume.shape)]
-    try:
-        resized_volume = zoom(cropped_volume, factors, order=1)
-    except Exception as e:
-        st.error(f"Error al redimensionar el volumen: {e}")
-        return None
-
-    # Normalizar los valores no cero
-    non_zero_mask = resized_volume > 0
-    mean = np.mean(resized_volume[non_zero_mask])
-    std = np.std(resized_volume[non_zero_mask])
-    resized_volume[non_zero_mask] = (resized_volume[non_zero_mask] - mean) / std
-
-    return resized_volume
 
 # Definir el modelo (Ejemplo de UNet simple)
 class SimpleSegmentationModel(torch.nn.Module):
@@ -144,7 +164,7 @@ elif pagina == "Resultados de Segmentación":
 
             if img_preprocessed is not None:
                 # Convertir la imagen preprocesada en un tensor y añadir la dimensión de batch
-                img_tensor = torch.tensor(img_preprocessed).unsqueeze(0).unsqueeze(0).float()
+                img_tensor = torch.tensor(img_preprocessed).unsqueeze(0).float()
 
                 # Cargar el modelo
                 model = load_model()
@@ -192,4 +212,5 @@ elif pagina == "Planificación Quirúrgica":
 
     Este sistema de visualización y segmentación permite a los médicos observar la estructura del tumor en detalle y tomar decisiones informadas sobre la ruta quirúrgica y el tratamiento más adecuado.
     """)
+
 
