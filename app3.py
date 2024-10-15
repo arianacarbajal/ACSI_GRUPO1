@@ -291,7 +291,7 @@ elif pagina == "Resultados de Segmentación":
                     # Mostrar la segmentación realizada
                     if img_preprocessed is not None and model is not None:
                         st.write("Realizando la segmentación...")
-                        with torch.no_grad()::
+                        with torch.no_grad():
                             slice_idx = st.slider(
                                 "Selecciona un corte axial para segmentar",
                                 0,
