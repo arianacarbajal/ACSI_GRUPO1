@@ -71,7 +71,23 @@ def download_model_from_gdrive(model_id, model_path):
         st.error(f"Error al descargar el modelo: {str(e)}")
     return model_path
 
+def load_nifti1(file):
+    if file is not None:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".nii.gz") as temp_file:
+            temp_file.write(file.read())  # Escribir el archivo en el sistema temporal
+            temp_file.flush()  # Asegurarse de que el archivo esté completamente escrito
+            img = nib.load(temp_file.name)  # Cargar el archivo NIfTI desde el archivo temporal
+            return img.get_fdata()
+    return None
 
+# Función para mostrar cortes de las imágenes
+def plot_mri_slices1(data, modality):
+    st.subheader(f"{modality} MRI")
+    slice_idx = st.slider(f"Selecciona un corte axial para {modality}", 0, data.shape[2] - 1, data.shape[2] // 2)
+    plt.imshow(data[:, :, slice_idx], cmap='gray')
+    plt.axis('off')
+    st.pyplot(plt)
+    
 def load_nifti(file):
     if file is not None:
         try:
@@ -201,24 +217,24 @@ if pagina == "Visualización MRI":
 
     if t1_file or t1c_file or t2_file or flair_file:
         if t1_file:
-            t1_data = load_nifti(t1_file)
+            t1_data = load_nifti1(t1_file)
             if t1_data is not None:
-                plot_mri_slices(t1_data, "T1-weighted")
+                plot_mri_slices1(t1_data, "T1-weighted")
 
         if t1c_file:
-            t1c_data = load_nifti(t1c_file)
+            t1c_data = load_nifti1(t1c_file)
             if t1c_data is not None:
-                plot_mri_slices(t1c_data, "T1c (con contraste)")
+                plot_mri_slices1(t1c_data, "T1c (con contraste)")
 
         if t2_file:
-            t2_data = load_nifti(t2_file)
+            t2_data = load_nifti1(t2_file)
             if t2_data is not None:
-                plot_mri_slices(t2_data, "T2-weighted")
+                plot_mri_slices1(t2_data, "T2-weighted")
 
         if flair_file:
-            flair_data = load_nifti(flair_file)
+            flair_data = load_nifti1(flair_file)
             if flair_data is not None:
-                plot_mri_slices(flair_data, "T2-FLAIR")
+                plot_mri_slices1(flair_data, "T2-FLAIR")
 
    
 
