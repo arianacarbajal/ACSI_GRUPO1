@@ -241,59 +241,63 @@ if pagina == "Visualización MRI":
 # --- Página de Resultados de Segmentación ---
 elif pagina == "Resultados de Segmentación":
     st.title("Resultados de Segmentación")
-    st.write("Aquí se mostrarán los resultados de la segmentación del tumor. Sube el archivo MRI apilado (stack) para segmentar.")
+    st.write("Aquí se mostrarán los resultados de la segmentación del tumor. Sube el archivo apilado (stack) para segmentar.")
 
-    # Subir un archivo apilado .nii/.nii.gz que contenga todas las modalidades T1, T2, T1c y FLAIR
-    uploaded_stack = st.file_uploader("Sube el archivo apilado de MRI (T1, T2, T1c, FLAIR) en formato NIfTI", type=["nii", "nii.gz"])
+    # Opción para subir un archivo .npy que contiene varias imágenes 2D apiladas
+    uploaded_stack_npy = st.file_uploader("Sube el archivo apilado en formato .npy (stack de imágenes 2D)", type=["npy"])
 
-    if uploaded_stack:
-        # Cargar y visualizar el stack
-        img_data, img_shape = load_nifti(uploaded_stack)
-        
-        # Verificación de las dimensiones de la imagen cargada
-        st.write(f"Dimensiones del archivo cargado: {img_shape}")
-        
-        if len(img_shape) < 3:
-            st.error("Error: Se esperaban al menos 3 dimensiones (e.g. X, Y, Z o X, Y, Z, C), pero se encontraron menos.")
-        else:
-            # Verificar si tiene 3 dimensiones (X, Y, Z) o 4 dimensiones (X, Y, Z, C)
-            if len(img_shape) == 3:
-                st.warning("El archivo cargado tiene solo 3 dimensiones (X, Y, Z). Se procederá como un stack sin canales adicionales.")
-                img_data = np.expand_dims(img_data, axis=-1)  # Añadir un canal si es necesario
+    if uploaded_stack_npy:
+        try:
+            # Cargar y apilar el archivo .npy
+            img_data = np.load(uploaded_stack_npy)
 
-            st.write(f"Shape después de la verificación: {img_data.shape}")
-            
-            try:
-                # Preprocesar el volumen apilado
-                img_preprocessed = preprocess_volume(img_data)
-                st.write(f"Shape después del preprocesamiento: {img_preprocessed.shape}")
+            # Verificar las dimensiones del archivo cargado
+            if len(img_data.shape) < 3:
+                st.error("Error: Se esperaban al menos 3 dimensiones (e.g. X, Y, Z), pero se encontraron menos.")
+            else:
+                st.write(f"Dimensiones del archivo cargado: {img_data.shape}")
 
-                # Guardar el stack preprocesado como archivo .npy
-                with tempfile.NamedTemporaryFile(delete=False, suffix=".npy") as temp_file:
-                    np.save(temp_file.name, img_preprocessed)
-                    st.success(f"Stack preprocesado guardado en {temp_file.name}")
+                # Si solo tiene 3 dimensiones (X, Y, Z), añadir una dimensión de canal
+                if len(img_data.shape) == 3:
+                    st.warning("El archivo cargado tiene solo 3 dimensiones (X, Y, Z). Se procederá como un stack sin canales adicionales.")
+                    img_data = np.expand_dims(img_data, axis=-1)  # Añadir un canal si es necesario
 
-                # Mostrar la segmentación realizada
-                if img_preprocessed is not None and model is not None:
-                    st.write("Realizando la segmentación...")
-                    with torch.no_grad():
-                        slice_idx = st.slider(
-                            "Selecciona un corte axial para segmentar",
-                            0,
-                            img_preprocessed.shape[2] - 1,  # Tamaño de la tercera dimensión (eje axial)
-                            img_preprocessed.shape[2] // 2,
-                        )
-                        img_slice = img_preprocessed[:, :, slice_idx, :]  # Tomar un corte axial de todas las modalidades
-                        img_tensor = torch.tensor(img_slice).unsqueeze(0).float()  # Añadir batch dimension
-                        img_tensor = img_tensor.permute(0, 3, 1, 2)  # Reorganizar para (batch, canales, height, width)
-                        pred = model(img_tensor)
-                        pred = torch.sigmoid(pred).squeeze().cpu().numpy()  # Convertir a numpy y aplicar sigmoide
+                st.write(f"Shape después de la verificación: {img_data.shape}")
 
-                    plot_mri_slices(img_preprocessed[:, :, slice_idx, 0], "T1 Original", overlay=pred)  # Mostrar resultado
+                try:
+                    # Preprocesar el volumen apilado
+                    img_preprocessed = preprocess_volume(img_data)
+                    st.write(f"Shape después del preprocesamiento: {img_preprocessed.shape}")
 
-            except Exception as e:
-                st.error(f"Error durante la segmentación: {e}")
-                st.write(traceback.format_exc())
+                    # Guardar el stack preprocesado como archivo .npy
+                    with tempfile.NamedTemporaryFile(delete=False, suffix=".npy") as temp_file:
+                        np.save(temp_file.name, img_preprocessed)
+                        st.success(f"Stack preprocesado guardado en {temp_file.name}")
+
+                    # Mostrar la segmentación realizada
+                    if img_preprocessed is not None and model is not None:
+                        st.write("Realizando la segmentación...")
+                        with torch.no_grad():
+                            slice_idx = st.slider(
+                                "Selecciona un corte axial para segmentar",
+                                0,
+                                img_preprocessed.shape[2] - 1,  # Tamaño de la tercera dimensión (eje axial)
+                                img_preprocessed.shape[2] // 2,
+                            )
+                            img_slice = img_preprocessed[:, :, slice_idx, :]  # Tomar un corte axial de todas las modalidades
+                            img_tensor = torch.tensor(img_slice).unsqueeze(0).float()  # Añadir batch dimension
+                            img_tensor = img_tensor.permute(0, 3, 1, 2)  # Reorganizar para (batch, canales, height, width)
+                            pred = model(img_tensor)
+                            pred = torch.sigmoid(pred).squeeze().cpu().numpy()  # Convertir a numpy y aplicar sigmoide
+
+                        plot_mri_slices(img_preprocessed[:, :, slice_idx, 0], "T1 Original", overlay=pred)  # Mostrar resultado
+
+                except Exception as e:
+                    st.error(f"Error durante la segmentación: {e}")
+                    st.write(traceback.format_exc())
+        except ValueError as e:
+            st.error(str(e))
+
 
  
     # --- Página de Leyendas ---
