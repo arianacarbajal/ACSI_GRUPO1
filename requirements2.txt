@@ -6,3 +6,4 @@ monai
 numpy
 matplotlib
 scipy
+gdown
