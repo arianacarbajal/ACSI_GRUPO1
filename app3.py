@@ -1,4 +1,4 @@
-import streamlit as st
+import streamlit as st 
 import nibabel as nib
 import numpy as np
 import matplotlib.pyplot as plt
@@ -14,7 +14,7 @@ import traceback
 # --- Configuración de la página ---
 st.set_page_config(page_title="MRI Visualization and Segmentation", layout="wide")
 
-# --- Configuración del modelo ---
+# ---  Configuración del modelo ---
 MODEL_ID = '1r5EWxoBiCMF7ug6jly-3Oma4C9N4ZhGi'
 MODEL_PATH = 'modelo_entrenado.pth'
 
@@ -81,7 +81,7 @@ class UNet(nn.Module):
         self.up2 = Up(512, 128)
         self.up3 = Up(256, 64)
         self.up4 = Up(128, 64)
-        self.outc = nn.Conv2d(64, n_classes, kernel_size=1)
+        self.outc = nn.Conv2d(64, n_classes, kernel_size=1) 
 
     def forward(self, x):
         x1 = self.inc(x)
@@ -122,11 +122,11 @@ def load_nifti(file):
 def preprocess_volume(volume, target_shape=(128, 128)):
     """Preprocesa el volumen 4D completo (todas las modalidades juntas)."""
 
-    if len(volume.shape) == 4:
+    if len(volume.shape) == 4:  
         volume = volume[:, :, START_SLICE:END_SLICE, :]  # Recortar el volumen
 
         # Calcula el target_shape basandose en la primera modalidad
-        target_shape_3d = (target_shape[0], target_shape[1], volume.shape[2])
+        target_shape_3d = (target_shape[0], target_shape[1], volume.shape[2]) 
         modalities = volume.shape[-1]
         resized_volumes = []
 
@@ -135,7 +135,7 @@ def preprocess_volume(volume, target_shape=(128, 128)):
             resized_volume = resize_volume_to_shape(modality_volume, target_shape_3d)
             resized_volumes.append(resized_volume)
 
-        resized_volume_4d = np.stack(resized_volumes, axis=-1)
+        resized_volume_4d = np.stack(resized_volumes, axis=-1) 
 
         # --- Normalizar el volumen 4D completo ---
         non_zero_mask = resized_volume_4d > 0
@@ -157,9 +157,15 @@ def resize_volume_to_shape(volume, target_shape):
     factors = [target_dim / float(dim) for target_dim, dim in zip(target_shape, volume.shape)]
     return zoom(volume, factors, order=1)  # Interpolación lineal
 
+
 def plot_mri_slices(data, modality, overlay=None):
     """Muestra cortes axiales de un volumen 3D."""
     st.subheader(f"{modality} MRI")
+    
+    if len(data.shape) < 3:
+        st.error(f"Error: Se esperaban al menos 3 dimensiones en los datos de imagen, pero se encontraron {len(data.shape)}")
+        return
+    
     slice_idx = st.slider(
         f"Selecciona un corte axial para {modality}",
         0,
@@ -171,29 +177,26 @@ def plot_mri_slices(data, modality, overlay=None):
     ax.imshow(data[:, :, slice_idx], cmap="gray")
 
     if overlay is not None:
-        # Asegúrate de que 'overlay' tiene la misma forma que 'data' en las dos primeras dimensiones
-        assert overlay.shape[:2] == data.shape[:2], f"Error: Las formas de la imagen y la máscara no coinciden: {data.shape} vs {overlay.shape}"
-        ax.imshow(overlay[:, :, slice_idx], cmap="hot", alpha=0.6)
+        if overlay.shape[:2] != data.shape[:2]:
+            st.error(f"Error: Las formas de la imagen y la máscara no coinciden: {data.shape} vs {overlay.shape}")
+        else:
+            ax.imshow(overlay[:, :, slice_idx], cmap="hot", alpha=0.6)
 
     ax.axis("off")
     st.pyplot(fig)
 
-def check_tensor_shape(tensor):
-    """Función para verificar las dimensiones del tensor."""
-    st.write(f"Dimensiones del tensor de entrada al modelo: {tensor.shape}")
-
 @st.cache_resource
 def load_model():
-    st.write("Cargando el modelo...")
+    st.write("Cargando el modelo...") 
     if not os.path.exists(MODEL_PATH):
         st.error(f"El archivo del modelo '{MODEL_PATH}' no existe. Descargando...")
         download_model_from_gdrive(MODEL_ID, MODEL_PATH)
 
     try:
-        model = UNet(n_channels=4, n_classes=3)
+        model = UNet(n_channels=4, n_classes=3) 
         st.write(f"Intentando cargar el modelo desde {MODEL_PATH}...")
         state_dict = torch.load(MODEL_PATH, map_location=torch.device("cpu"))
-        model.load_state_dict(state_dict, strict=False)  # Permite cierta flexibilidad en las claves del estado
+        model.load_state_dict(state_dict)
         model.eval()
         st.success("Modelo cargado correctamente.")
         return model
@@ -202,8 +205,11 @@ def load_model():
         st.write(traceback.format_exc())  # Imprime el traceback en caso de error
     return None
 
+
 # --- Lógica principal de la aplicación ---
 if __name__ == "__main__":
+
+    # Carga el modelo de segmentación
     model = load_model()
 
     # Barra lateral
@@ -266,32 +272,28 @@ if __name__ == "__main__":
                             slice_idx = st.slider(
                                 "Selecciona un corte axial para segmentar",
                                 0,
-                                img_preprocessed.shape[2] - 1,
+                                img_preprocessed.shape[2] - 1,  
                                 img_preprocessed.shape[2] // 2,
                             )
                             # Extraer el slice
-                            img_slice = img_preprocessed[:, :, slice_idx, :]
+                            img_slice = img_preprocessed[:, :, slice_idx, :]  
                             # Agregar la dimensión de batch y convertir a tensor
                             img_tensor = torch.tensor(img_slice).unsqueeze(0).float()
                             # Reordenar dimensiones: [batch_size, canales, alto, ancho]
-                            img_tensor = img_tensor.permute(0, 3, 1, 2)
-                            
-                            # Verificar las dimensiones del tensor antes de la segmentación
-                            check_tensor_shape(img_tensor)
-
+                            img_tensor = img_tensor.permute(0, 3, 1, 2)  
                             # Inferencia del modelo
                             pred = model(img_tensor)
-                            pred = torch.sigmoid(pred).squeeze().cpu().numpy()
+                            pred = torch.sigmoid(pred).squeeze().cpu().numpy()  
 
-                        # Visualización
-                        plot_mri_slices(img_preprocessed[:, :, slice_idx, 0], "T1 Original", overlay=pred)
+                        # Visualización 
+                        plot_mri_slices(img_preprocessed[:, :, slice_idx, 0], "T1 Original", overlay=pred) 
 
                 except Exception as e:
                     st.error(f"Error durante la segmentación: {e}")
                     st.write(traceback.format_exc())
             else:
                 st.error("Error al cargar la imagen.")
-
+ 
     # --- Página de Leyendas ---
     elif pagina == "Leyendas":
         st.title("Leyendas de Segmentación")
@@ -351,4 +353,5 @@ if __name__ == "__main__":
     # --- Mensaje de pie de página ---
     st.sidebar.markdown("---")
     st.sidebar.info("Desarrollado por el Grupo 1 de ACSI")
+
 
