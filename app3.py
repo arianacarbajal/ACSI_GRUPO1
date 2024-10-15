@@ -282,7 +282,7 @@ elif pagina == "Resultados de Segmentación":
                 os.remove(temp_file.name)
             else:
                 st.error("Tipo de archivo no soportado. Por favor, carga un archivo .npy o .nii/.nii.gz.")
-                return  
+                st.stop()  
 
             # Comprobaciones de dimensiones
             if len(img_data.shape) != 4:
