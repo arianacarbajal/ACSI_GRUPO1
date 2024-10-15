@@ -377,4 +377,4 @@ elif pagina == "Planificación Quirúrgica":
 
     # --- Mensaje de pie de página ---
 st.sidebar.markdown("---")
-    st.sidebar.info("Desarrollado por el Grupo 1 de ACSI")
+st.sidebar.info("Desarrollado por el Grupo 1 de ACSI")
