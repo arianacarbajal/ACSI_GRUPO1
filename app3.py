@@ -18,16 +18,16 @@ st.set_page_config(page_title="MRI Visualization and Segmentation", layout="wide
 MODEL_ID = '1r5EWxoBiCMF7ug6jly-3Oma4C9N4ZhGi' 
 MODEL_PATH = 'modelo_entrenado.pth' 
 
-# --- Definición del modelo U-Net 3D ---
+# --- Definición del modelo U-Net (Antes en model.py) ---
 class DoubleConv(nn.Module):
     def __init__(self, in_channels, out_channels):
         super(DoubleConv, self).__init__()
         self.conv = nn.Sequential(
-            nn.Conv3d(in_channels, out_channels, kernel_size=3, padding=1),
-            nn.BatchNorm3d(out_channels), #<- Cambio importante para 3D
+            nn.Conv2d(in_channels, out_channels, kernel_size=3, padding=1),
+            nn.BatchNorm2d(out_channels),
             nn.ReLU(inplace=True),
-            nn.Conv3d(out_channels, out_channels, kernel_size=3, padding=1),
-            nn.BatchNorm3d(out_channels), #<- Cambio importante para 3D
+            nn.Conv2d(out_channels, out_channels, kernel_size=3, padding=1),
+            nn.BatchNorm2d(out_channels),
             nn.ReLU(inplace=True),
         )
 
@@ -39,8 +39,7 @@ class Down(nn.Module):
     def __init__(self, in_channels, out_channels):
         super(Down, self).__init__()
         self.maxpool_conv = nn.Sequential(
-            nn.MaxPool3d(2), #<- Cambio importante para 3D
-            DoubleConv(in_channels, out_channels)
+            nn.MaxPool2d(2), DoubleConv(in_channels, out_channels)
         )
 
     def forward(self, x):
@@ -50,17 +49,16 @@ class Down(nn.Module):
 class Up(nn.Module):
     def __init__(self, in_channels, out_channels):
         super(Up, self).__init__()
-        self.up = nn.Upsample(scale_factor=2, mode="trilinear", align_corners=True) #<- Adaptado para 3D
+        self.up = nn.Upsample(scale_factor=2, mode="bilinear", align_corners=True)
         self.conv = DoubleConv(in_channels, out_channels)
 
     def forward(self, x1, x2): 
         x1 = self.up(x1)
-        # Ajustar dimensiones si es necesario (padding) -  Asegúrate de que esto funciona correctamente en 3D
+        # Ajustar dimensiones si es necesario (padding)
         diffY = x2.size()[2] - x1.size()[2]
         diffX = x2.size()[3] - x1.size()[3]
-        diffZ = x2.size()[4] - x1.size()[4] #<- Añadida dimension Z
         x1 = F.pad(
-            x1, [diffX // 2, diffX - diffX // 2, diffY // 2, diffY - diffY // 2, diffZ // 2, diffZ - diffZ // 2]
+            x1, [diffX // 2, diffX - diffX // 2, diffY // 2, diffY - diffY // 2]
         )
         x = torch.cat([x2, x1], dim=1)
         return self.conv(x)
@@ -78,7 +76,7 @@ class UNet(nn.Module):
         self.up2 = Up(512, 128)
         self.up3 = Up(256, 64)
         self.up4 = Up(128, 64)
-        self.outc = nn.Conv3d(64, n_classes, kernel_size=1) #<- Cambio importante para 3D
+        self.outc = nn.Conv2d(64, n_classes, kernel_size=1)
 
     def forward(self, x):
         x1 = self.inc(x)
