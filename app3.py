@@ -243,13 +243,21 @@ elif pagina == "Resultados de Segmentación":
     st.title("Resultados de Segmentación")
     st.write("Aquí se mostrarán los resultados de la segmentación del tumor. Sube el archivo apilado (stack) para segmentar.")
 
-    # Opción para subir un archivo .npy que contiene varias imágenes 2D apiladas
-    uploaded_stack_npy = st.file_uploader("Sube el archivo apilado en formato .npy (stack de imágenes 2D)", type=["npy"])
+    # Opción para subir un archivo .npy que contiene varias imágenes 2D apiladas o un archivo NIfTI (.nii, .nii.gz)
+    uploaded_stack = st.file_uploader("Sube el archivo apilado de MRI (.npy o .nii/.nii.gz)", type=["npy", "nii", "nii.gz"])
 
-    if uploaded_stack_npy:
+    if uploaded_stack:
         try:
-            # Cargar y apilar el archivo .npy
-            img_data = np.load(uploaded_stack_npy)
+            # Si es un archivo .npy
+            if uploaded_stack.name.endswith('.npy'):
+                img_data = np.load(uploaded_stack)
+
+            # Si es un archivo .nii o .nii.gz
+            elif uploaded_stack.name.endswith(('.nii', '.nii.gz')):
+                import nibabel as nib
+                nii_img = nib.load(uploaded_stack)
+                img_data = nii_img.get_fdata()  # Convertir a array de NumPy
+                st.write("Archivo NIfTI cargado correctamente.")
 
             # Verificar las dimensiones del archivo cargado
             if len(img_data.shape) < 3:
