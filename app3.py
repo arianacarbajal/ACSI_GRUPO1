@@ -34,9 +34,7 @@ class DoubleConv(nn.Module):
 
     def forward(self, x):
         return self.conv(x)
-
-class UNet(nn.Module):
-    class Down(nn.Module):
+class Down(nn.Module):
     """Downscaling with maxpool then double conv"""
     def __init__(self, in_channels, out_channels):
         super().__init__()
@@ -75,6 +73,8 @@ class Up(nn.Module):
         # Concatenate along channels
         x = torch.cat([x2, x1], dim=1)
         return self.conv(x)
+        
+class UNet(nn.Module):
     def __init__(self, n_channels=4, n_classes=3):
         super(UNet, self).__init__()
         self.inc = DoubleConv(n_channels, 64)
