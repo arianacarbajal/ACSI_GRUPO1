@@ -78,14 +78,14 @@ class UNet(nn.Module):
     def __init__(self, n_channels=4, n_classes=3):
         super(UNet, self).__init__()
         self.inc = DoubleConv(n_channels, 64)
-        self.down1 = Down(64, 128)
-        self.down2 = Down(128, 256)
-        self.down3 = Down(256, 512)
-        self.down4 = Down(512, 512)
-        self.up1 = Up(1024, 256)
-        self.up2 = Up(512, 128)
-        self.up3 = Up(256, 64)
-        self.up4 = Up(128, 64)
+        self.down1 = self.Down(64, 128)  # Instancia Down aquí
+        self.down2 = self.Down(128, 256)  # Igual para las demás
+        self.down3 = self.Down(256, 512)
+        self.down4 = self.Down(512, 512)
+        self.up1 = self.Up(1024, 256)  # Lo mismo para la clase Up
+        self.up2 = self.Up(512, 128)
+        self.up3 = self.Up(256, 64)
+        self.up4 = self.Up(128, 64)
         self.outc = nn.Conv2d(64, n_classes, kernel_size=1) 
 
     def forward(self, x):
