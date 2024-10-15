@@ -1,4 +1,4 @@
-import streamlit as st 
+import streamlit as st
 import nibabel as nib
 import numpy as np
 import matplotlib.pyplot as plt
@@ -44,7 +44,7 @@ def save_response_content(response, destination):
                 f.write(chunk)
 
 # Descargar el archivo .pth desde Google Drive
-model_id = '1r5EWxoBiCMF7ug6jly-3Oma4C9N4ZhGi'
+model_id = '1r5EWxoBiCMF7ug6jly-3Oma4C9N4ZhGi'  # ID de tu archivo en Drive
 model_path = 'modelo_entrenado.pth'
 download_model_from_google_drive(model_id, model_path)
 
@@ -286,5 +286,3 @@ elif pagina == "Planificación Quirúrgica":
 # Mensaje de pie de página
 st.sidebar.markdown("---")
 st.sidebar.info("Desarrollado por el Grupo 1 de ACSI")
-
-
