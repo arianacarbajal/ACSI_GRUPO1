@@ -238,6 +238,10 @@ if pagina == "Visualización MRI":
 
    
     
+import io
+import nibabel as nib
+import numpy as np
+
 # --- Página de Resultados de Segmentación ---
 elif pagina == "Resultados de Segmentación":
     st.title("Resultados de Segmentación")
@@ -254,8 +258,12 @@ elif pagina == "Resultados de Segmentación":
 
             # Si es un archivo .nii o .nii.gz
             elif uploaded_stack.name.endswith(('.nii', '.nii.gz')):
-                import nibabel as nib
-                nii_img = nib.load(uploaded_stack)
+                # Leer el archivo usando BytesIO
+                file_bytes = uploaded_stack.read()
+                file_obj = io.BytesIO(file_bytes)
+
+                # Cargar el archivo NIfTI desde el objeto BytesIO
+                nii_img = nib.load(file_obj)
                 img_data = nii_img.get_fdata()  # Convertir a array de NumPy
                 st.write("Archivo NIfTI cargado correctamente.")
 
@@ -305,6 +313,7 @@ elif pagina == "Resultados de Segmentación":
                     st.write(traceback.format_exc())
         except ValueError as e:
             st.error(str(e))
+
 
 
  
