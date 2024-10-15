@@ -25,7 +25,7 @@ def download_model_from_gdrive(model_id, model_path):
 # Descargar el archivo .pth desde Google Drive
 model_id = '1r5EWxoBiCMF7ug6jly-3Oma4C9N4ZhGi'
 model_path = 'modelo_entrenado.pth'
-st.write("Intentando descargar el modelo...")  # Mensaje de depuración
+st.write("Intentando descargar el modelo...")
 model_path = download_model_from_gdrive(model_id, model_path)
 
 # Verificación de la validez del modelo descargado
@@ -33,7 +33,7 @@ def is_valid_model_file(filepath):
     try:
         with open(filepath, 'rb') as f:
             first_bytes = f.read(4)
-            if first_bytes.startswith(b'\x80\x04'):  # Bytes mágicos para archivos pickle
+            if first_bytes.startswith(b'\x80\x04'):  # Verifica que sea un archivo PyTorch
                 return True
             else:
                 return False
@@ -51,9 +51,103 @@ if model_path and os.path.exists(model_path):
 else:
     st.error(f"No se encontró el archivo del modelo en {model_path}.")
 
-# Crear las páginas en la barra lateral
-st.sidebar.title("Navegación")
-pagina = st.sidebar.radio("Ir a", ["Visualización MRI", "Resultados de Segmentación", "Leyendas", "Manual de Usuario", "Planificación Quirúrgica"])
+# Definir la arquitectura U-Net
+class UNet(torch.nn.Module):
+    def __init__(self, n_channels, n_classes):
+        super(UNet, self).__init__()
+        self.inc = DoubleConv(n_channels, 64)
+        self.down1 = Down(64, 128)
+        self.down2 = Down(128, 256)
+        self.down3 = Down(256, 512)
+        self.down4 = Down(512, 512)
+        self.up1 = Up(1024, 256)
+        self.up2 = Up(512, 128)
+        self.up3 = Up(256, 64)
+        self.up4 = Up(128, 64)
+        self.outc = OutConv(64, n_classes)
+
+    def forward(self, x):
+        x1 = self.inc(x)
+        x2 = self.down1(x1)
+        x3 = self.down2(x2)
+        x4 = self.down3(x3)
+        x5 = self.down4(x4)
+        x = self.up1(x5, x4)
+        x = self.up2(x, x3)
+        x = self.up3(x, x2)
+        x = self.up4(x, x1)
+        logits = self.outc(x)
+        return logits
+
+# Definir bloques de la U-Net (convoluciones dobles, upsampling, etc.)
+class DoubleConv(torch.nn.Module):
+    def __init__(self, in_channels, out_channels):
+        super(DoubleConv, self).__init__()
+        self.conv = torch.nn.Sequential(
+            torch.nn.Conv2d(in_channels, out_channels, kernel_size=3, padding=1),
+            torch.nn.BatchNorm2d(out_channels),
+            torch.nn.ReLU(inplace=True),
+            torch.nn.Conv2d(out_channels, out_channels, kernel_size=3, padding=1),
+            torch.nn.BatchNorm2d(out_channels),
+            torch.nn.ReLU(inplace=True)
+        )
+
+    def forward(self, x):
+        return self.conv(x)
+
+class Down(torch.nn.Module):
+    def __init__(self, in_channels, out_channels):
+        super(Down, self).__init__()
+        self.maxpool_conv = torch.nn.Sequential(
+            torch.nn.MaxPool2d(2),
+            DoubleConv(in_channels, out_channels)
+        )
+
+    def forward(self, x):
+        return self.maxpool_conv(x)
+
+class Up(torch.nn.Module):
+    def __init__(self, in_channels, out_channels):
+        super(Up, self).__init__()
+        self.up = torch.nn.ConvTranspose2d(in_channels // 2, in_channels // 2, kernel_size=2, stride=2)
+        self.conv = DoubleConv(in_channels, out_channels)
+
+    def forward(self, x1, x2):
+        x1 = self.up(x1)
+        diffY = x2.size()[2] - x1.size()[2]
+        diffX = x2.size()[3] - x1.size()[3]
+        x1 = F.pad(x1, [diffX // 2, diffX - diffX // 2, diffY // 2, diffY - diffY // 2])
+        x = torch.cat([x2, x1], dim=1)
+        return self.conv(x)
+
+class OutConv(torch.nn.Module):
+    def __init__(self, in_channels, out_channels):
+        super(OutConv, self).__init__()
+        self.conv = torch.nn.Conv2d(in_channels, out_channels, kernel_size=1)
+
+    def forward(self, x):
+        return self.conv(x)
+
+# Cargar el modelo
+@st.cache_resource
+def load_model():
+    st.write("Cargando el modelo...")
+    if not os.path.exists(model_path):
+        st.error(f"El archivo del modelo '{model_path}' no existe.")
+        return None
+
+    try:
+        model = UNet(n_channels=4, n_classes=3)
+        st.write(f"Intentando cargar el modelo desde {model_path}...")
+        state_dict = torch.load(model_path, map_location=torch.device('cpu'))
+        model.load_state_dict(state_dict)
+        model.eval()
+        st.success("Modelo cargado correctamente.")
+        return model
+    except Exception as e:
+        st.error(f"Error al cargar el modelo: {str(e)}")
+    
+    return None
 
 # Función para cargar archivos NIfTI
 def load_nifti(file):
@@ -116,20 +210,6 @@ def preprocess_volume(volume, target_shape=(128, 128, 128)):
         st.error("El volumen no tiene el número esperado de dimensiones (4D).")
         return None
 
-# Definir el modelo
-class SimpleSegmentationModel(torch.nn.Module):
-    def __init__(self):
-        super(SimpleSegmentationModel, self).__init__()
-        self.conv1 = torch.nn.Conv2d(4, 8, kernel_size=3, padding=1)
-        self.conv2 = torch.nn.Conv2d(8, 16, kernel_size=3, padding=1)
-        self.conv3 = torch.nn.Conv2d(16, 3, kernel_size=1)
-
-    def forward(self, x):
-        x = F.relu(self.conv1(x))
-        x = F.relu(self.conv2(x))
-        x = self.conv3(x)
-        return x
-
 # Función para mostrar cortes de las imágenes
 def plot_mri_slices(data, modality):
     st.subheader(f"{modality} MRI")
@@ -139,28 +219,10 @@ def plot_mri_slices(data, modality):
     ax.axis('off')
     st.pyplot(fig)
 
-# Cargar el modelo
-@st.cache_resource
-def load_model():
-    st.write("Cargando el modelo...")  # Mensaje de depuración
-    if not os.path.exists(model_path):
-        st.error(f"El archivo del modelo '{model_path}' no existe.")
-        return None
-
-    try:
-        model = SimpleSegmentationModel()
-        st.write(f"Intentando cargar el modelo desde {model_path}...")  # Mensaje de depuración
-        state_dict = torch.load(model_path, map_location=torch.device('cpu'))
-        model.load_state_dict(state_dict)
-        model.eval()
-        st.success("Modelo cargado correctamente.")
-        return model
-    except Exception as e:
-        st.error(f"Error al cargar el modelo: {str(e)}")
-    
-    return None
-
 # Página de visualización MRI
+st.sidebar.title("Navegación")
+pagina = st.sidebar.radio("Ir a", ["Visualización MRI", "Resultados de Segmentación", "Leyendas", "Manual de Usuario", "Planificación Quirúrgica"])
+
 if pagina == "Visualización MRI":
     st.title("Visualización de MRI")
     st.write("Sube los archivos NIfTI de diferentes modalidades para visualizar los cortes.")
@@ -202,8 +264,7 @@ elif pagina == "Resultados de Segmentación":
         img_data = load_nifti(img_file)
         if img_data is not None:
             st.write("Imagen cargada correctamente.")
-
-            # Preprocesar la imagen
+            
             img_preprocessed = preprocess_volume(img_data)
 
             if img_preprocessed is not None:
@@ -211,19 +272,15 @@ elif pagina == "Resultados de Segmentación":
 
                 model = load_model()
                 if model:
-                    try:
-                        st.write("Realizando la segmentación...")
-                        with torch.no_grad():
-                            pred = model(img_tensor)
-                            pred = torch.sigmoid(pred).squeeze().numpy()
+                    with torch.no_grad():
+                        pred = model(img_tensor)
+                        pred = torch.sigmoid(pred).squeeze().numpy()
 
-                        slice_idx = st.slider("Selecciona un corte axial para visualizar la segmentación", 0, pred.shape[2] - 1, pred.shape[2] // 2)
-                        fig, ax = plt.subplots()
-                        ax.imshow(pred[:, :, slice_idx], cmap='hot', alpha=0.6)
-                        ax.axis('off')
-                        st.pyplot(fig)
-                    except Exception as e:
-                        st.error(f"Error durante la segmentación: {str(e)}")
+                    slice_idx = st.slider("Selecciona un corte axial para visualizar la segmentación", 0, pred.shape[2] - 1, pred.shape[2] // 2)
+                    fig, ax = plt.subplots()
+                    ax.imshow(pred[:, :, slice_idx], cmap='hot', alpha=0.6)
+                    ax.axis('off')
+                    st.pyplot(fig)
                 else:
                     st.error("No se pudo cargar el modelo para la segmentación.")
 
@@ -271,8 +328,6 @@ elif pagina == "Planificación Quirúrgica":
     - Minimizar el daño al tejido cerebral sano.
     - Mejorar los resultados postoperatorios del paciente.
     - Facilitar la comunicación entre el equipo médico y con el paciente.
-
-    Recuerde que esta herramienta es un apoyo a la decisión clínica y debe utilizarse en conjunto con la experiencia del neurocirujano y otros datos clínicos relevantes.
     """)
 
 # Mensaje de pie de página
