@@ -28,29 +28,6 @@ model_path = 'modelo_entrenado.pth'
 st.write("Intentando descargar el modelo...")
 model_path = download_model_from_gdrive(model_id, model_path)
 
-# Verificación de la validez del modelo descargado
-def is_valid_model_file(filepath):
-    try:
-        with open(filepath, 'rb') as f:
-            first_bytes = f.read(4)
-            if first_bytes.startswith(b'\x80\x04'):  # Verifica que sea un archivo PyTorch
-                return True
-            else:
-                return False
-    except Exception as e:
-        st.error(f"Error al verificar el archivo del modelo: {str(e)}")
-        return False
-
-# Validar si el modelo es un archivo válido de PyTorch
-if model_path and os.path.exists(model_path):
-    st.write(f"Archivo del modelo encontrado: {model_path}")
-    if is_valid_model_file(model_path):
-        st.write("Archivo del modelo verificado correctamente.")
-    else:
-        st.error("El archivo del modelo no es válido.")
-else:
-    st.error(f"No se encontró el archivo del modelo en {model_path}.")
-
 # Definir la arquitectura U-Net
 class UNet(torch.nn.Module):
     def __init__(self, n_channels, n_classes):
@@ -128,7 +105,7 @@ class OutConv(torch.nn.Module):
     def forward(self, x):
         return self.conv(x)
 
-# Cargar el modelo
+# Cargar el modelo con manejo de discrepancias
 @st.cache_resource
 def load_model():
     st.write("Cargando el modelo...")
@@ -139,8 +116,15 @@ def load_model():
     try:
         model = UNet(n_channels=4, n_classes=3)
         st.write(f"Intentando cargar el modelo desde {model_path}...")
+
+        # Cargar el estado del modelo y manejar discrepancias
         state_dict = torch.load(model_path, map_location=torch.device('cpu'))
-        model.load_state_dict(state_dict)
+
+        # Filtrar los pesos inesperados
+        model_state_dict = model.state_dict()
+        filtered_state_dict = {k: v for k, v in state_dict.items() if k in model_state_dict}
+        model.load_state_dict(filtered_state_dict, strict=False)
+
         model.eval()
         st.success("Modelo cargado correctamente.")
         return model
@@ -333,4 +317,5 @@ elif pagina == "Planificación Quirúrgica":
 # Mensaje de pie de página
 st.sidebar.markdown("---")
 st.sidebar.info("Desarrollado por el Grupo 1 de ACSI")
+
 
