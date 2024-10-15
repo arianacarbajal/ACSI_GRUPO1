@@ -35,7 +35,7 @@ class DoubleConv(nn.Module):
     def forward(self, x):
         return self.conv(x)
 
-# --- Definición de la clase Down ---
+
 class Down(nn.Module):
     """Downscaling with maxpool then double conv"""
 
@@ -49,12 +49,12 @@ class Down(nn.Module):
     def forward(self, x):
         return self.maxpool_conv(x)
 
-# --- Definición de la clase Up ---
+
 class Up(nn.Module):
     """Upscaling then double conv"""
 
     def __init__(self, in_channels, out_channels, bilinear=True):
-        super().__init__()
+        super().__init__()  # <--  Añadido super().__init__() aquí
 
         # if bilinear, use the faster conv transpose, else use the transposed conv
         if bilinear:
@@ -75,13 +75,12 @@ class Up(nn.Module):
         
         x = torch.cat([x2, x1], dim=1)
         return self.conv(x)
-        
 
-class UNet(nn.Module): # La definición de UNet debe ir DESPUÉS de Down y Up
+class UNet(nn.Module):
     def __init__(self, n_channels=4, n_classes=3):
         super(UNet, self).__init__()
         self.inc = DoubleConv(n_channels, 64)
-        self.down1 = Down(64, 128) # Ahora Down está definida
+        self.down1 = Down(64, 128)
         self.down2 = Down(128, 256)
         self.down3 = Down(256, 512)
         self.down4 = Down(512, 512)
