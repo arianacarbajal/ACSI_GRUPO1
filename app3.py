@@ -8,7 +8,6 @@ import tempfile
 from scipy.ndimage import zoom
 import requests
 import os
-import io
 
 # Configuración de la página
 st.set_page_config(page_title="MRI Visualization and Segmentation", layout="wide")
@@ -26,11 +25,32 @@ def download_model(url, output_path):
         except Exception as e:
             st.error(f"Error al descargar el modelo: {str(e)}")
             return None
+    else:
+        st.info(f"Modelo ya disponible en {output_path}")
     return output_path
 
 # URL del modelo (asegúrate de que esta URL sea accesible y válida)
-model_url = 'https://drive.google.com/drive/folders/12z89cWzTQDESyytgC3qgtSaF2e5KNbmW?usp=drive_link'
+model_url = 'https://drive.google.com/uc?export=download&id=1r5EWxoBiCMF7ug6jly-3Oma4C9N4ZhGi'
 model_path = download_model(model_url, 'modelo_entrenado.pth')
+
+# Verificación de la validez del modelo descargado
+def is_valid_model_file(filepath):
+    try:
+        with open(filepath, 'rb') as f:
+            first_bytes = f.read(4)
+            if first_bytes.startswith(b'\x80\x04'):  # Bytes mágicos para archivos pickle
+                return True
+            else:
+                return False
+    except Exception as e:
+        st.error(f"Error al verificar el archivo del modelo: {str(e)}")
+        return False
+
+# Validar si el modelo es un archivo válido de PyTorch
+if model_path and is_valid_model_file(model_path):
+    st.write("Archivo del modelo verificado correctamente.")
+else:
+    st.error("El archivo del modelo no es válido o no se ha descargado correctamente.")
 
 # Crear las páginas en la barra lateral
 st.sidebar.title("Navegación")
@@ -251,3 +271,4 @@ elif pagina == "Planificación Quirúrgica":
 # Mensaje de pie de página
 st.sidebar.markdown("---")
 st.sidebar.info("Desarrollado por el Grupo 1 de ACSI")
+
