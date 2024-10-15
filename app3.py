@@ -354,27 +354,27 @@ elif pagina == "Manual de Usuario":
 elif pagina == "Planificación Quirúrgica":
     st.title("Aplicaciones en la Planificación Quirúrgica")
     st.write(
-            """
-        La segmentación de imágenes cerebrales juega un papel crucial en la planificación de cirugías para la resección de tumores cerebrales. 
-        Al identificar el núcleo del tumor, el tejido edematoso y el tumor realzado, los cirujanos pueden planificar estrategias precisas para la intervención quirúrgica.
-
-        Este sistema de visualización y segmentación permite a los médicos:
-        1. Observar la estructura del tumor en detalle.
-        2. Identificar áreas críticas y zonas de riesgo.
-        3. Planificar la ruta quirúrgica más segura y efectiva.
-        4. Estimar el volumen del tumor y la extensión de la resección necesaria.
-        5. Evaluar la proximidad del tumor a estructuras cerebrales importantes.
-
-        La precisión de esta información es vital para:
-        - Maximizar la extirpación del tumor.
-        - Minimizar el daño al tejido cerebral sano.
-        - Mejorar los resultados postoperatorios del paciente.
-        - Facilitar la comunicación entre el equipo médico y con el paciente.
-
-        **Recuerda que esta herramienta es un apoyo a la decisión clínica y debe utilizarse en conjunto con la experiencia del neurocirujano y otros datos clínicos relevantes.**
         """
-        )
+    La segmentación de imágenes cerebrales juega un papel crucial en la planificación de cirugías para la resección de tumores cerebrales. 
+    Al identificar el núcleo del tumor, el tejido edematoso y el tumor realzado, los cirujanos pueden planificar estrategias precisas para la intervención quirúrgica.
 
-    # --- Mensaje de pie de página ---
-    st.sidebar.markdown("---")
-    st.sidebar.info("Desarrollado por el Grupo 1 de ACSI")
+    Este sistema de visualización y segmentación permite a los médicos:
+    1. Observar la estructura del tumor en detalle.
+    2. Identificar áreas críticas y zonas de riesgo.
+    3. Planificar la ruta quirúrgica más segura y efectiva.
+    4. Estimar el volumen del tumor y la extensión de la resección necesaria.
+    5. Evaluar la proximidad del tumor a estructuras cerebrales importantes.
+
+    La precisión de esta información es vital para:
+    - Maximizar la extirpación del tumor.
+    - Minimizar el daño al tejido cerebral sano.
+    - Mejorar los resultados postoperatorios del paciente.
+    - Facilitar la comunicación entre el equipo médico y con el paciente.
+
+    **Recuerda que esta herramienta es un apoyo a la decisión clínica y debe utilizarse en conjunto con la experiencia del neurocirujano y otros datos clínicos relevantes.**
+    """
+    )
+
+# --- Mensaje de pie de página ---
+st.sidebar.markdown("---")
+st.sidebar.info("Desarrollado por el Grupo 1 de ACSI")
