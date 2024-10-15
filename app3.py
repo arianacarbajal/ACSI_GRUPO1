@@ -148,7 +148,7 @@ def preprocess_volume(volume, target_shape=(128, 128)):
         return resized_volume_4d
 
     else:
-        st.error("El volumen no tiene el número esperado de dimensiones (4D).")
+        st.error(f"Error: Se esperaban 4 dimensiones, pero el volumen tiene {len(volume.shape)} dimensiones.")
         return None
 
 def resize_volume_to_shape(volume, target_shape):
@@ -240,7 +240,11 @@ if __name__ == "__main__":
 
         if uploaded_files:
             # Combinar los archivos en un volumen 4D
-            img_data = np.stack([load_nifti(file)[0] for file in uploaded_files], axis=-1)
+            img_data, img_shape = zip(*[load_nifti(file) for file in uploaded_files])
+            img_data = np.stack(img_data, axis=-1) if img_data else None
+
+            st.write(f"Dimensiones de los datos cargados: {img_shape}")
+            
             if img_data is not None:
                 plot_mri_slices(img_data, "MRI Multimodalidad")
 
@@ -257,9 +261,11 @@ if __name__ == "__main__":
         )
 
         if uploaded_file:
-            img_data, shape = load_nifti(uploaded_file)
+            img_data, img_shape = load_nifti(uploaded_file)
+            st.write(f"Dimensiones del archivo cargado: {img_shape}")
+
             if img_data is not None:
-                st.write(f"Imagen cargada correctamente con dimensiones {shape}.")
+                st.write("Imagen cargada correctamente.")
 
                 try:
                     img_preprocessed = preprocess_volume(img_data)
@@ -293,5 +299,63 @@ if __name__ == "__main__":
                     st.write(traceback.format_exc())
             else:
                 st.error("Error al cargar la imagen.")
+ 
+    # --- Página de Leyendas ---
+    elif pagina == "Leyendas":
+        st.title("Leyendas de Segmentación")
+        st.write(
+            """
+        En las imágenes segmentadas, cada valor representa un tipo de tejido. A continuación se muestra la leyenda para interpretar las imágenes:
 
+        - 0: Fondo
+        - 1: Núcleo de tumor necrótico (rojo)
+        - 2: Tumor realzado (amarillo)
+        - 3: Tejido edematoso peritumoral (verde)
+        """
+        )
 
+    # --- Página del Manual de Usuario ---
+    elif pagina == "Manual de Usuario":
+        st.title("Manual de Usuario")
+        st.write(
+            """
+        Manual de Uso del Visualizador de MRI:
+
+        1. Cargar Archivos: 
+            - Para visualizar:  Sube los archivos MRI en formato NIfTI para cada modalidad (T1, T2, T1c, FLAIR) en la página "Visualización MRI". Puedes subir un único archivo que contenga todas las modalidades o cada modalidad por separado. 
+            - Para segmentar: Sube un único archivo que contenga las 4 modalidades (T1, T2, T1c, FLAIR) en la página "Resultados de Segmentación".
+        2. Visualización de Cortes: Usa el control deslizante para seleccionar el corte axial que desees visualizar.
+        3. Segmentación: Una vez que hayas cargado un archivo válido, la segmentación se ejecutará automáticamente y se mostrará junto a la imagen original.
+        4. Interpretación: Utiliza la página de Leyendas para entender el significado de los colores en la segmentación.
+        5. Planificación Quirúrgica: La página "Planificación Quirúrgica" proporciona información sobre cómo la segmentación puede ayudar en la planificación de cirugías.
+        """
+        )
+
+    # --- Página sobre Planificación Quirúrgica ---
+    elif pagina == "Planificación Quirúrgica":
+        st.title("Aplicaciones en la Planificación Quirúrgica")
+        st.write(
+            """
+        La segmentación de imágenes cerebrales juega un papel crucial en la planificación de cirugías para la resección de tumores cerebrales. 
+        Al identificar el núcleo del tumor, el tejido edematoso y el tumor realzado, los cirujanos pueden planificar estrategias precisas para la intervención quirúrgica.
+
+        Este sistema de visualización y segmentación permite a los médicos:
+        1. Observar la estructura del tumor en detalle.
+        2. Identificar áreas críticas y zonas de riesgo.
+        3. Planificar la ruta quirúrgica más segura y efectiva.
+        4. Estimar el volumen del tumor y la extensión de la resección necesaria.
+        5. Evaluar la proximidad del tumor a estructuras cerebrales importantes.
+
+        La precisión de esta información es vital para:
+        - Maximizar la extirpación del tumor.
+        - Minimizar el daño al tejido cerebral sano.
+        - Mejorar los resultados postoperatorios del paciente.
+        - Facilitar la comunicación entre el equipo médico y con el paciente.
+
+        **Recuerda que esta herramienta es un apoyo a la decisión clínica y debe utilizarse en conjunto con la experiencia del neurocirujano y otros datos clínicos relevantes.**
+        """
+        )
+
+    # --- Mensaje de pie de página ---
+    st.sidebar.markdown("---")
+    st.sidebar.info("Desarrollado por el Grupo 1 de ACSI")
