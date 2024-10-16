@@ -3,7 +3,6 @@ import nibabel as nib
 import numpy as np
 import matplotlib.pyplot as plt
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
 import tempfile
 from scipy.ndimage import zoom
@@ -16,51 +15,8 @@ import io
 st.set_page_config(page_title="MRI Visualization and Segmentation", layout="wide")
 
 # ---  Configuración del modelo ---
-MODEL_ID = '1r5EWxoBiCMF7ug6jly-3Oma4C9N4ZhGi'
+MODEL_ID = '1r5EWxoBiCMF7ug6jly-3Oma4C9N4ZhGi'  # Asegúrate de que este ID sea el correcto
 MODEL_PATH = 'modelo_entrenado.pth'
-
-# --- Definición del modelo U-Net 2D ---
-class DoubleConv(nn.Module):
-    def __init__(self, in_channels, out_channels):
-        super(DoubleConv, self).__init__()
-        self.conv = nn.Sequential(
-            nn.Conv2d(in_channels, out_channels, kernel_size=3, padding=1),
-            nn.BatchNorm2d(out_channels),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(out_channels, out_channels, kernel_size=3, padding=1),
-            nn.BatchNorm2d(out_channels),
-            nn.ReLU(inplace=True),
-        )
-
-    def forward(self, x):
-        return self.conv(x)
-
-class UNet(nn.Module):
-    def __init__(self, n_channels=4, n_classes=3):
-        super(UNet, self).__init__()
-        self.inc = DoubleConv(n_channels, 64)
-        self.down1 = Down(64, 128)
-        self.down2 = Down(128, 256)
-        self.down3 = Down(256, 512)
-        self.down4 = Down(512, 512)
-        self.up1 = Up(1024, 256)
-        self.up2 = Up(512, 128)
-        self.up3 = Up(256, 64)
-        self.up4 = Up(128, 64)
-        self.outc = nn.Conv2d(64, n_classes, kernel_size=1) 
-
-    def forward(self, x):
-        x1 = self.inc(x)
-        x2 = self.down1(x1)
-        x3 = self.down2(x2)
-        x4 = self.down3(x3)
-        x5 = self.down4(x4)
-        x = self.up1(x5, x4)
-        x = self.up2(x, x3)
-        x = self.up3(x, x2)
-        x = self.up4(x, x1)
-        logits = self.outc(x)
-        return logits
 
 # --- Funciones auxiliares ---
 @st.cache_data
@@ -75,9 +31,9 @@ def download_model_from_gdrive(model_id, model_path):
 def load_nifti1(file):
     if file is not None:
         with tempfile.NamedTemporaryFile(delete=False, suffix=".nii.gz") as temp_file:
-            temp_file.write(file.read())  # Escribir el archivo en el sistema temporal
-            temp_file.flush()  # Asegurarse de que el archivo esté completamente escrito
-            img = nib.load(temp_file.name)  # Cargar el archivo NIfTI desde el archivo temporal
+            temp_file.write(file.read()) 
+            temp_file.flush() 
+            img = nib.load(temp_file.name)  
             return img.get_fdata()
     return None
 
@@ -185,30 +141,27 @@ def plot_mri_slices(data, modality, overlay=None):
     ax.axis("off")
     st.pyplot(fig)
 
-@st.cache_resource
+@st.cache_resource  # Carga el modelo una vez y lo mantiene en caché
 def load_model():
-    st.write("Cargando el modelo...") 
+    st.write("Cargando el modelo...")
     if not os.path.exists(MODEL_PATH):
         st.error(f"El archivo del modelo '{MODEL_PATH}' no existe. Descargando...")
         download_model_from_gdrive(MODEL_ID, MODEL_PATH)
 
     try:
-        model = UNet(n_channels=4, n_classes=3) 
-        st.write(f"Intentando cargar el modelo desde {MODEL_PATH}...")
-        state_dict = torch.load(MODEL_PATH, map_location=torch.device("cpu"))
-        model.load_state_dict(state_dict)
-        model.eval()
+        model = torch.load(MODEL_PATH, map_location=torch.device('cpu'))
+        model.eval()  # Pon el modelo en modo de evaluación
         st.success("Modelo cargado correctamente.")
         return model
     except Exception as e:
         st.error(f"Error al cargar el modelo: {str(e)}")
-        st.write(traceback.format_exc())  # Imprime el traceback en caso de error
-    return None
+        st.write(traceback.format_exc())
+        return None
 
 # --- Lógica principal de la aplicación ---
 if __name__ == "__main__":
 
-    model = load_model()
+    model = load_model()  # Carga el modelo al iniciar la aplicación
 
     # Barra lateral
     st.sidebar.title("Navegación")
@@ -222,7 +175,6 @@ if __name__ == "__main__":
             "Planificación Quirúrgica",
         ],
     )
-
     # --- Página de Visualización MRI ---
     # Página de visualización MRI
 if pagina == "Visualización MRI":
