@@ -10,7 +10,7 @@ from scipy.ndimage import zoom
 import os
 import gdown
 import traceback
-import i
+import io
 
 class DoubleConv(nn.Module):
     def __init__(self, in_channels, out_channels):
