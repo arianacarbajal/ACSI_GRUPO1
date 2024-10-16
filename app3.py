@@ -12,6 +12,14 @@ import gdown
 import traceback
 import io
 
+# --- Configuración de la página ---
+st.set_page_config(
+    page_title="MRI Visualization and Segmentation", layout="wide")
+
+# ---  Configuración del modelo ---
+MODEL_ID = '1r5EWxoBiCMF7ug6jly-3Oma4C9N4ZhGi'  # ID real de tu archivo .pth
+MODEL_PATH = 'modelo_entrenado.pth'
+
 class DoubleConv(nn.Module):
     def __init__(self, in_channels, out_channels):
         super(DoubleConv, self).__init__()
@@ -35,7 +43,7 @@ class Down(nn.Module):
             DoubleConv(in_channels, out_channels)
         )
     def forward(self, x):
-    return self.maxpool_conv(x)
+        return self.maxpool_conv(x)
 
 class Up(nn.Module):
     def __init__(self, in_channels, out_channels):
