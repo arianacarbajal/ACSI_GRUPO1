@@ -1,4 +1,4 @@
-import streamlit as st
+import streamlit as st 
 import nibabel as nib
 import numpy as np
 import matplotlib.pyplot as plt
@@ -13,13 +13,13 @@ import traceback
 import io
 
 # --- Configuración de la página ---
-st.set_page_config(
-    page_title="MRI Visualization and Segmentation", layout="wide")
+st.set_page_config(page_title="MRI Visualization and Segmentation", layout="wide")
 
 # ---  Configuración del modelo ---
-MODEL_ID = '1r5EWxoBiCMF7ug6jly-3Oma4C9N4ZhGi'  # ID real de tu archivo .pth
+MODEL_ID = '1r5EWxoBiCMF7ug6jly-3Oma4C9N4ZhGi'
 MODEL_PATH = 'modelo_entrenado.pth'
 
+# --- Definición del modelo U-Net 2D ---
 class DoubleConv(nn.Module):
     def __init__(self, in_channels, out_channels):
         super(DoubleConv, self).__init__()
@@ -42,6 +42,7 @@ class Down(nn.Module):
             nn.MaxPool2d(2),
             DoubleConv(in_channels, out_channels)
         )
+
     def forward(self, x):
         return self.maxpool_conv(x)
 
@@ -85,7 +86,7 @@ class UNet(nn.Module):
         x = self.up4(x, x1)
         logits = self.outc(x)
         return logits
-        
+
 # --- Funciones auxiliares ---
 @st.cache_data
 def download_model_from_gdrive(model_id, model_path):
@@ -99,115 +100,18 @@ def download_model_from_gdrive(model_id, model_path):
 def load_nifti1(file):
     if file is not None:
         with tempfile.NamedTemporaryFile(delete=False, suffix=".nii.gz") as temp_file:
-            temp_file.write(file.read())  # Escribir el archivo en el sistema temporal
-            temp_file.flush()  # Asegurarse de que el archivo esté completamente escrito
-            img = nib.load(temp_file.name)  # Cargar el archivo NIfTI desde el archivo temporal
+            temp_file.write(file.read())
+            temp_file.flush()
+            img = nib.load(temp_file.name)
             return img.get_fdata()
     return None
 
-# Función para mostrar cortes de las imágenes
 def plot_mri_slices1(data, modality):
     st.subheader(f"{modality} MRI")
     slice_idx = st.slider(f"Selecciona un corte axial para {modality}", 0, data.shape[2] - 1, data.shape[2] // 2)
     plt.imshow(data[:, :, slice_idx], cmap='gray')
     plt.axis('off')
     st.pyplot(plt)
-    
-def load_nifti(file):
-    if file is not None:
-        try:
-            with tempfile.NamedTemporaryFile(delete=False, suffix=".nii.gz") as temp_file:
-                temp_file.write(file.read())
-                temp_file.flush()
-                img = nib.load(temp_file.name)
-                return img.get_fdata(), img.shape  # Devolver los datos de la imagen y su forma
-        except Exception as e:
-            st.error(f"Error al cargar el archivo NIfTI: {str(e)}")
-    return None, None
-
-def preprocess_volume(volume, target_shape=(128, 128)):
-    """
-    Preprocesa un volumen 4D (o 3D si se trata de un solo canal) para que sea compatible con 
-    el modelo U-Net 2D. 
-
-    Args:
-        volume (np.array): El volumen a preprocesar. Puede ser 3D (alto, ancho, profundidad)
-                           o 4D (alto, ancho, profundidad, canales).
-        target_shape (tuple): La forma deseada para las dimensiones alto y ancho 
-                             después del preprocesamiento (por defecto: (128, 128)).
-
-    Returns:
-        np.array: El volumen preprocesado con forma (alto, ancho, profundidad) 
-                  o (alto, ancho, profundidad, canales), dependiendo del volumen de entrada.
-
-    """
-    # Constantes para el recorte del volumen (locales a la función) 
-    START_SLICE = 40
-    END_SLICE = 130
-    st.write(f"Verificando las dimensiones del volumen cargado: {volume.shape}")
-
-    # 1. Recortar la profundidad (si es necesario)
-    volume = volume[:, :, START_SLICE:END_SLICE]
-
-    # 2. Redimensionar las dimensiones espaciales (si es necesario)
-    if volume.shape[0] != target_shape[0] or volume.shape[1] != target_shape[1]:
-        st.write("Redimensionando volumen...")
-        factors = (target_shape[0] / volume.shape[0], 
-                   target_shape[1] / volume.shape[1], 
-                   1)  # Factor 1 para mantener la profundidad
-        if len(volume.shape) == 4:  # Si es 4D, redimensionamos cada canal
-            new_shape = (target_shape[0], target_shape[1], volume.shape[2], volume.shape[3])
-            volume = zoom(volume, factors + (1,), order=1)  # Interpolación lineal
-        else:
-            volume = zoom(volume, factors, order=1)
-        st.write(f"Nuevo tamaño del volumen después de redimensionar: {volume.shape}")
-    else:
-        st.write("El volumen ya tiene la forma deseada. No se redimensionará.")
-
-    # 3. Normalizar (importante para el entrenamiento, pero opcional para la visualización)
-    # Nota: La normalización debe ser consistente con la que utilizaste durante el entrenamiento
-    # Ajusta el método de normalización a tus necesidades
-    volume = (volume - volume.min()) / (volume.max() - volume.min())
-
-    st.write(f"Shape del volumen después de preprocess_volume: {volume.shape}")
-    return volume
-
-def resize_volume_to_shape(volume, target_shape):
-    """Redimensiona un volumen a la forma deseada."""
-    from scipy.ndimage import zoom
-    factors = [target_dim / float(dim) for target_dim, dim in zip(target_shape, volume.shape)]
-    return zoom(volume, factors, order=1)  # Interpolación lineal
-
-
-def plot_mri_slices(data, modality, overlay=None):
-    """Muestra cortes axiales de un volumen 3D, con la posibilidad de una superposición."""
-    st.subheader(f"{modality} MRI")
-
-    if len(data.shape) < 3:
-        st.error(f"Error: Se esperaban al menos 3 dimensiones en los datos de imagen, pero se encontraron {len(data.shape)}")
-        return
-
-    slice_idx = st.slider(
-        f"Selecciona un corte axial para {modality}",
-        0,
-        data.shape[2] - 1,
-        data.shape[2] // 2,
-    )
-
-    fig, ax = plt.subplots()
-    ax.imshow(data[:, :, slice_idx], cmap="gray")  # Mostrar la imagen base en escala de grises
-
-    if overlay is not None:
-        # --- Corrección en el manejo del overlay ---
-        if overlay.shape[1:] != data.shape[:2]: # Comparamos (alto, ancho) 
-            st.error(f"Error: Las formas de la imagen y la máscara no coinciden: {data.shape} vs {overlay.shape}")
-            return
-        else:
-            # Mostrar el canal 0 de 'overlay' usando el índice correcto
-            ax.imshow(overlay[0, :, :], cmap="hot", alpha=0.6)  
-
-    ax.axis("off")
-    st.pyplot(fig)
 
 @st.cache_resource
 def load_model():
@@ -226,12 +130,11 @@ def load_model():
         return model
     except Exception as e:
         st.error(f"Error al cargar el modelo: {str(e)}")
-        st.write(traceback.format_exc())  # Imprime el traceback en caso de error
+        st.write(traceback.format_exc())
     return None
 
 # --- Lógica principal de la aplicación ---
-if __name__ == "__main__":
-
+def main():
     model = load_model()
 
     # Barra lateral
