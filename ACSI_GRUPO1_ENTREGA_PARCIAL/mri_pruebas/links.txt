@@ -1,1 +1,4 @@
-
+CANVA:
+https://www.canva.com/design/DAGTrluJi_Q/oow8QkO4bVW9d53qME7hQg/edit?utm_content=DAGTrluJi_Q&utm_campaign=designshare&utm_medium=link2&utm_source=sharebutton
+STREAMLIT:
+https://mriplaneacionapp.streamlit.app/
