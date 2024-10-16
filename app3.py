@@ -1,25 +1,7 @@
-import streamlit as st 
-import nibabel as nib
-import numpy as np
-import matplotlib.pyplot as plt
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import tempfile
-from scipy.ndimage import zoom
-import os
-import gdown
-import traceback
-import io
 
-# --- Configuración de la página ---
-st.set_page_config(page_title="MRI Visualization and Segmentation", layout="wide")
-
-# ---  Configuración del modelo ---
-MODEL_ID = '1r5EWxoBiCMF7ug6jly-3Oma4C9N4ZhGi'
-MODEL_PATH = 'modelo_entrenado.pth'
-
-# --- Definición del modelo U-Net 2D ---
 class DoubleConv(nn.Module):
     def __init__(self, in_channels, out_channels):
         super(DoubleConv, self).__init__()
@@ -33,6 +15,31 @@ class DoubleConv(nn.Module):
         )
 
     def forward(self, x):
+        return self.conv(x)
+
+class Down(nn.Module):
+    def __init__(self, in_channels, out_channels):
+        super(Down, self).__init__()
+        self.maxpool_conv = nn.Sequential(
+            nn.MaxPool2d(2),
+            DoubleConv(in_channels, out_channels)
+        )
+
+    def forward(self, x):
+        return self.maxpool_conv(x)
+
+class Up(nn.Module):
+    def __init__(self, in_channels, out_channels):
+        super(Up, self).__init__()
+        self.up = nn.ConvTranspose2d(in_channels, in_channels // 2, kernel_size=2, stride=2)
+        self.conv = DoubleConv(in_channels, out_channels)
+
+    def forward(self, x1, x2):
+        x1 = self.up(x1)
+        diffY = x2.size()[2] - x1.size()[2]
+        diffX = x2.size()[3] - x1.size()[3]
+        x1 = F.pad(x1, [diffX // 2, diffX - diffX // 2, diffY // 2, diffY - diffY // 2])
+        x = torch.cat([x2, x1], dim=1)
         return self.conv(x)
 
 class UNet(nn.Module):
@@ -61,7 +68,7 @@ class UNet(nn.Module):
         x = self.up4(x, x1)
         logits = self.outc(x)
         return logits
-
+        
 # --- Funciones auxiliares ---
 @st.cache_data
 def download_model_from_gdrive(model_id, model_path):
