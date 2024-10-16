@@ -143,15 +143,22 @@ def plot_mri_slices(data, modality, overlay=None):
 
 @st.cache_resource
 def load_model():
+    st.write("Cargando el modelo...")
     if not os.path.exists(MODEL_PATH):
-        # ... (Código para descargar el modelo)
+        st.error(f"El archivo del modelo '{MODEL_PATH}' no existe. Descargando...")
+        try:
+            gdown.download(f'https://drive.google.com/uc?id={MODEL_ID}', MODEL_PATH, quiet=False)
+            st.success(f"Modelo descargado y guardado en {MODEL_PATH}")
+        except Exception as e:
+            st.error(f"Error al descargar el modelo: {str(e)}")
+            return None
 
     try:
-        # 1. Cargar el state_dict 
+        # 1. Cargar el state_dict
         state_dict = torch.load(MODEL_PATH, map_location=torch.device('cpu'))
 
         # 2. Crear una nueva instancia del modelo U-Net
-        model = UNet(n_channels=4, n_classes=3)  # Define tu clase UNet aquí o impórtala 
+        model = UNet(n_channels=4, n_classes=3)  # Asegúrate de que la clase UNet esté definida
 
         # 3. Cargar los parámetros del state_dict en el modelo
         model.load_state_dict(state_dict)
@@ -165,7 +172,7 @@ def load_model():
     except Exception as e:
         st.error(f"Error al cargar el modelo: {str(e)}")
         st.write(traceback.format_exc())  # Imprime el traceback si hay un error
-        return None 
+        return None
 
 
 # --- Lógica principal de la aplicación ---
