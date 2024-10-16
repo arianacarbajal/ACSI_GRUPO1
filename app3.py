@@ -283,17 +283,69 @@ if __name__ == "__main__":
                 st.error(f"Error durante la segmentación: {e}")
                 st.write(traceback.format_exc())
 
-    # --- Página de Leyendas ---
-    elif pagina == "Leyendas":
-        # ... (Código de la página de Leyendas)
+elif pagina == "Leyendas":
+    st.title("Leyendas de Segmentación")
+    st.write(
+        """
+    En las imágenes segmentadas, cada color representa un tipo de tejido. 
+    A continuación se muestra la leyenda para interpretar las imágenes:
 
-    # --- Página del Manual de Usuario ---
-    elif pagina == "Manual de Usuario":
-        # ... (Código de la página de Manual de Usuario) ...
+    - **Rojo:** Núcleo del tumor necrótico. 
+    - **Amarillo:** Tumor realzado (tejido tumoral activo).
+    - **Verde:** Tejido edematoso peritumoral (inflamación alrededor del tumor).
+    - **Gris oscuro (fondo):**  Tejido cerebral normal. 
+    """
+    )
 
-    # --- Página sobre Planificación Quirúrgica ---
-    elif pagina == "Planificación Quirúrgica":
-       # ... (Código de la página de Planificación Quirúrgica) ...
+elif pagina == "Manual de Usuario":
+    st.title("Manual de Usuario")
+    st.write(
+        """
+    **Cómo utilizar esta aplicación:**
+
+    **1. Visualización de Imágenes MRI:**
+      * En la sección "Visualización MRI", sube archivos de imágenes cerebrales en formato NIfTI (.nii o .nii.gz). 
+      * Puedes subir archivos para las siguientes modalidades: T1, T1c (con contraste), T2 y FLAIR. 
+      * Utiliza el control deslizante para visualizar diferentes cortes axiales de la imagen.
+
+    **2. Segmentación de Tumor Cerebral:**
+      * En la sección "Resultados de Segmentación", sube un archivo que contenga las cuatro modalidades (T1, T1c, T2, FLAIR) en un solo archivo (formato .npy o .nii/.nii.gz). 
+      * El modelo de aprendizaje profundo segmentará automáticamente la imagen y mostrará la región del tumor. 
+      * Utiliza el control deslizante para visualizar la segmentación en diferentes cortes axiales. 
+
+    **3. Interpretación de Resultados:**
+      * Revisa la página "Leyendas" para entender el significado de los colores en la segmentación. 
+
+    **4. Consideraciones importantes:**
+      * Asegúrate de que los archivos de imagen que subes sean de buena calidad para obtener resultados óptimos. 
+      * Este sistema es una herramienta de apoyo y no debe utilizarse como único medio para el diagnóstico o la planificación del tratamiento.
+    """
+    )
+
+elif pagina == "Planificación Quirúrgica":
+    st.title("Aplicaciones en la Planificación Quirúrgica")
+    st.write(
+        """
+    La segmentación precisa de tumores cerebrales es esencial para la planificación quirúrgica, ya que proporciona información crucial para:
+
+    * **Delimitación del tumor:**  Definir con precisión los límites del tumor, incluyendo el núcleo necrótico, la región realzada y el área edematosa.
+    * **Planificación de la resección:**  Ayudar a los cirujanos a planificar la mejor estrategia quirúrgica para la extirpación del tumor, teniendo en cuenta su ubicación y proximidad a estructuras cerebrales críticas.
+    * **Minimización de riesgos:**  Evaluar la probabilidad de dañar tejidos sanos durante la cirugía y minimizar el riesgo de complicaciones.
+    * **Selección de la ruta de acceso:**  Determinar la mejor manera de acceder al tumor durante la cirugía.
+
+    **Beneficios de la segmentación para la planificación quirúrgica:**
+
+    * **Cirugía más precisa y segura.**
+    * **Reducción del riesgo de complicaciones.**
+    * **Mejores resultados para los pacientes.**
+    * **Toma de decisiones informadas.**
+
+    **Es importante tener en cuenta que:**
+
+    * Esta aplicación proporciona una segmentación del tumor, pero no reemplaza la evaluación y el juicio clínico de un profesional médico. 
+    * La planificación quirúrgica final debe basarse en la combinación de la segmentación, imágenes médicas adicionales y la experiencia del equipo quirúrgico.
+    """
+    )
 
     # --- Mensaje de pie de página ---
     st.sidebar.markdown("---")
