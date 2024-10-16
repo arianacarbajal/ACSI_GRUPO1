@@ -12,25 +12,25 @@ import gdown
 import traceback
 import io
 
-# --- Page Configuration ---
-st.set_page_config(page_title="MRI Visualization and Segmentation", layout="wide")
+# --- Configuración de la página ---
+st.set_page_config(page_title="Visualización y Segmentación de MRI", layout="wide")
 
-# --- Model Configuration ---
-MODEL_ID = '1r5EWxoBiCMF7ug6jly-3Oma4C9N4ZhGi'
-MODEL_PATH = 'modelo_entrenado.pth'
+# ---  Configuración del modelo ---
+MODEL_ID = '1r5EWxoBiCMF7ug6jly-3Oma4C9N4ZhGi' # Reemplaza con tu ID de modelo
+MODEL_PATH = 'modelo_entrenado.pth' # Reemplaza con la ruta de tu modelo
 
-# --- U-Net 2D Model Definition ---
+# --- Definición del modelo U-Net 2D ---
 class DoubleConv(nn.Module):
-    """(convolution => [BN] => ReLU) * 2"""
+    """(convolución => [BN] => ReLU) * 2"""
 
-    def __init__(self, in_channels, out_channels):
+    def __init__(self, canales_entrada, canales_salida):
         super().__init__()
         self.conv = nn.Sequential(
-            nn.Conv2d(in_channels, out_channels, kernel_size=3, padding=1),
-            nn.BatchNorm2d(out_channels),
+            nn.Conv2d(canales_entrada, canales_salida, kernel_size=3, padding=1),
+            nn.BatchNorm2d(canales_salida),
             nn.ReLU(inplace=True),
-            nn.Conv2d(out_channels, out_channels, kernel_size=3, padding=1),
-            nn.BatchNorm2d(out_channels),
+            nn.Conv2d(canales_salida, canales_salida, kernel_size=3, padding=1),
+            nn.BatchNorm2d(canales_salida),
             nn.ReLU(inplace=True),
         )
 
@@ -38,35 +38,35 @@ class DoubleConv(nn.Module):
         return self.conv(x)
 
 class Down(nn.Module):
-    """Downscaling with maxpool then double conv"""
+    """Reducción de escala con maxpool y luego doble convolución"""
 
-    def __init__(self, in_channels, out_channels):
+    def __init__(self, canales_entrada, canales_salida):
         super().__init__()
         self.maxpool_conv = nn.Sequential(
             nn.MaxPool2d(2),
-            DoubleConv(in_channels, out_channels)
+            DoubleConv(canales_entrada, canales_salida)
         )
 
     def forward(self, x):
         return self.maxpool_conv(x)
 
 class Up(nn.Module):
-    """Upscaling then double conv"""
+    """Aumento de escala y luego doble convolución"""
 
-    def __init__(self, in_channels, out_channels, bilinear=True):
+    def __init__(self, canales_entrada, canales_salida, bilinear=True):
         super().__init__()
 
-        # Use bilinear upsampling or transposed convolution
+        # Usar muestreo ascendente bilineal o convolución transpuesta
         if bilinear:
             self.up = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
         else:
-            self.up = nn.ConvTranspose2d(in_channels // 2, in_channels // 2, kernel_size=2, stride=2)
+            self.up = nn.ConvTranspose2d(canales_entrada // 2, canales_entrada // 2, kernel_size=2, stride=2)
 
-        self.conv = DoubleConv(in_channels, out_channels)
+        self.conv = DoubleConv(canales_entrada, canales_salida)
 
     def forward(self, x1, x2):
         x1 = self.up(x1)
-        # Input is CHW
+        # La entrada es CHW
         diffY = x2.size()[2] - x1.size()[2]
         diffX = x2.size()[3] - x1.size()[3]
 
@@ -77,13 +77,13 @@ class Up(nn.Module):
 
 
 class UNet(nn.Module):
-    def __init__(self, n_channels=4, n_classes=3, bilinear=True):
+    def __init__(self, canales_entrada=4, num_clases=3, bilinear=True):
         super(UNet, self).__init__()
-        self.n_channels = n_channels
-        self.n_classes = n_classes
+        self.canales_entrada = canales_entrada
+        self.num_clases = num_clases
         self.bilinear = bilinear
 
-        self.inc = DoubleConv(n_channels, 64)
+        self.inc = DoubleConv(canales_entrada, 64)
         self.down1 = Down(64, 128)
         self.down2 = Down(128, 256)
         self.down3 = Down(256, 512)
@@ -92,7 +92,7 @@ class UNet(nn.Module):
         self.up2 = Up(512, 128, bilinear)
         self.up3 = Up(256, 64, bilinear)
         self.up4 = Up(128, 64, bilinear)
-        self.outc = nn.Conv2d(64, n_classes, kernel_size=1) 
+        self.outc = nn.Conv2d(64, num_clases, kernel_size=1)
 
     def forward(self, x):
         x1 = self.inc(x)
@@ -107,301 +107,309 @@ class UNet(nn.Module):
         logits = self.outc(x)
         return logits
 
-# --- Helper Functions ---
+# --- Funciones auxiliares ---
 @st.cache_data
-def download_model_from_gdrive(model_id, model_path):
+def descargar_modelo_desde_gdrive(model_id, ruta_modelo):
     try:
-        gdown.download(f'https://drive.google.com/uc?id={model_id}', model_path, quiet=False)
-        st.success(f"Model downloaded and saved to {model_path}")
+        gdown.download(f'https://drive.google.com/uc?id={model_id}', ruta_modelo, quiet=False)
+        st.success(f"Modelo descargado y guardado en {ruta_modelo}")
     except Exception as e:
-        st.error(f"Error downloading the model: {str(e)}")
-    return model_path
+        st.error(f"Error al descargar el modelo: {str(e)}")
+    return ruta_modelo
 
-def load_nifti1(file):
-    if file is not None:
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".nii.gz") as temp_file:
-            temp_file.write(file.read()) 
-            temp_file.flush() 
-            img = nib.load(temp_file.name) 
+
+def cargar_nifti1(archivo):
+    if archivo is not None:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".nii.gz") as archivo_temporal:
+            archivo_temporal.write(archivo.read())  # Escribir el archivo en el sistema temporal
+            archivo_temporal.flush()  # Asegurarse de que el archivo esté completamente escrito
+            img = nib.load(archivo_temporal.name)  # Cargar el archivo NIfTI desde el archivo temporal
             return img.get_fdata()
     return None
 
-# Function to display image slices
-def plot_mri_slices1(data, modality):
-    st.subheader(f"{modality} MRI")
-    slice_idx = st.slider(f"Select an axial slice for {modality}", 0, data.shape[2] - 1, data.shape[2] // 2)
-    plt.imshow(data[:, :, slice_idx], cmap='gray')
+# Función para mostrar cortes de las imágenes
+def mostrar_cortes_mri1(datos, modalidad):
+    st.subheader(f"MRI {modalidad}")
+    indice_corte = st.slider(f"Selecciona un corte axial para {modalidad}", 0, datos.shape[2] - 1, datos.shape[2] // 2)
+    plt.imshow(datos[:, :, indice_corte], cmap='gray')
     plt.axis('off')
     st.pyplot(plt)
     
-def load_nifti(file):
-    if file is not None:
+def cargar_nifti(archivo):
+    if archivo is not None:
         try:
             with tempfile.NamedTemporaryFile(delete=False, suffix=".nii.gz") as temp_file:
-                temp_file.write(file.read())
+                temp_file.write(archivo.read())
                 temp_file.flush()
                 img = nib.load(temp_file.name)
-                return img.get_fdata(), img.shape 
+                return img.get_fdata(), img.shape
         except Exception as e:
-            st.error(f"Error loading NIfTI file: {str(e)}")
+            st.error(f"Error al cargar el archivo NIfTI: {str(e)}")
     return None, None
 
-def preprocess_volume(volume, target_shape=(128, 128)):
+def preprocesar_volumen(volumen, forma_objetivo=(128, 128)):
     """
-    Preprocesses a 4D (or 3D for single-channel) volume to be compatible with
-    the 2D U-Net model.
+    Preprocesa un volumen 4D (o 3D si se trata de un solo canal) para que sea compatible con
+    el modelo U-Net 2D.
 
     Args:
-        volume (np.array): The volume to preprocess. Can be 3D (height, width, depth)
-                           or 4D (height, width, depth, channels).
-        target_shape (tuple): The desired shape for the height and width 
-                             dimensions after preprocessing (default: (128, 128)).
+        volumen (np.array): El volumen a preprocesar. Puede ser 3D (alto, ancho, profundidad)
+                           o 4D (alto, ancho, profundidad, canales).
+        forma_objetivo (tuple): La forma deseada para las dimensiones alto y ancho
+                             después del preprocesamiento (por defecto: (128, 128)).
 
     Returns:
-        np.array: The preprocessed volume with shape (height, width, depth)
-                  or (height, width, depth, channels), depending on input volume.
+        np.array: El volumen preprocesado con forma (alto, ancho, profundidad)
+                  o (alto, ancho, profundidad, canales), dependiendo del volumen de entrada.
     """
 
-    st.write(f"Checking dimensions of uploaded volume: {volume.shape}")
+    st.write(f"Verificando las dimensiones del volumen cargado: {volumen.shape}")
 
-    # 1. Crop depth (if necessary)
-    START_SLICE = 40 
-    END_SLICE = 130 
-    volume = volume[:, :, START_SLICE:END_SLICE]
+    # 1. Recortar la profundidad (si es necesario)
+    CORTE_INICIAL = 40  
+    CORTE_FINAL = 130   
+    volumen = volumen[:, :, CORTE_INICIAL:CORTE_FINAL]
 
-    # 2. Resize spatial dimensions (if necessary)
-    if volume.shape[0] != target_shape[0] or volume.shape[1] != target_shape[1]:
-        st.write("Resizing volume...")
-        factors = (
-            target_shape[0] / volume.shape[0], 
-            target_shape[1] / volume.shape[1],
-            1, 
-        ) 
-        if len(volume.shape) == 4:  
-            new_shape = (target_shape[0], target_shape[1], volume.shape[2], volume.shape[3])
-            volume = zoom(volume, factors + (1,), order=1) 
+    # 2. Redimensionar las dimensiones espaciales (si es necesario)
+    if volumen.shape[0] != forma_objetivo[0] or volumen.shape[1] != forma_objetivo[1]:
+        st.write("Redimensionando volumen...")
+        factores = (
+            forma_objetivo[0] / volumen.shape[0],
+            forma_objetivo[1] / volumen.shape[1],
+            1,  # Factor 1 para mantener la profundidad
+        )
+        if len(volumen.shape) == 4:  # Si es 4D, redimensionamos cada canal
+            nueva_forma = (forma_objetivo[0], forma_objetivo[1], volumen.shape[2], volumen.shape[3])
+            volumen = zoom(volumen, factores + (1,), order=1)  # Interpolación lineal
         else:
-            volume = zoom(volume, factors, order=1)
-        st.write(f"New volume size after resizing: {volume.shape}")
+            volumen = zoom(volumen, factores, order=1)
+        st.write(f"Nuevo tamaño del volumen después de redimensionar: {volumen.shape}")
     else:
-        st.write("The volume already has the desired shape. It will not be resized.")
+        st.write("El volumen ya tiene la forma deseada. No se redimensionará.")
 
-    # 3. Normalize 
-    volume = (volume - volume.min()) / (volume.max() - volume.min())
+    # 3. Normalizar
+    volumen = (volumen - volumen.min()) / (volumen.max() - volumen.min())
 
-    st.write(f"Volume Shape after preprocess_volume: {volume.shape}")
-    return volume
+    st.write(f"Shape del volumen después de preprocesar_volumen: {volumen.shape}")
+    return volumen
 
-def plot_mri_slices(data, modality, overlay=None):
-    """Displays axial slices of a 3D volume, with an optional overlay."""
-    st.subheader(f"{modality} MRI")
+def mostrar_cortes_mri(datos, modalidad, superposicion=None):
+    """Muestra cortes axiales de un volumen 3D, con la posibilidad de una superposición."""
+    st.subheader(f"MRI {modalidad}")
 
-    if len(data.shape) < 3:
-        st.error(f"Error: Expected at least 3 dimensions in image data, but found {len(data.shape)}")
+    if len(datos.shape) < 3:
+        st.error(f"Error: Se esperaban al menos 3 dimensiones en los datos de imagen, pero se encontraron {len(datos.shape)}")
         return
 
-    slice_idx = st.slider(
-        f"Select an axial slice for {modality}",
+    indice_corte = st.slider(
+        f"Selecciona un corte axial para {modalidad}",
         0,
-        data.shape[2] - 1,
-        data.shape[2] // 2,
+        datos.shape[2] - 1,
+        datos.shape[2] // 2,
     )
 
     fig, ax = plt.subplots()
-    ax.imshow(data[:, :, slice_idx], cmap="gray") 
+    ax.imshow(datos[:, :, indice_corte], cmap="gray")  # Mostrar la imagen base en escala de grises
 
-    if overlay is not None:
-        if overlay.shape[1:] != data.shape[:2]: 
-            st.error(f"Error: The shapes of the image and the mask do not match: {data.shape} vs {overlay.shape}")
+    if superposicion is not None:
+        # --- Corrección en el manejo de la superposición ---
+        if superposicion.shape[1:] != datos.shape[:2]:  # Comparamos (alto, ancho)
+            st.error(f"Error: Las formas de la imagen y la máscara no coinciden: {datos.shape} vs {superposicion.shape}")
             return
         else:
-            ax.imshow(overlay[0, :, :], cmap="hot", alpha=0.6)  
+            # Mostrar el canal 0 de 'superposicion' usando el índice correcto
+            ax.imshow(superposicion[0, :, :], cmap="hot", alpha=0.6)
 
     ax.axis("off")
     st.pyplot(fig)
 
 @st.cache_resource
-def load_model():
-    st.write("Loading the model...") 
+def cargar_modelo():
+    st.write("Cargando el modelo...")
     if not os.path.exists(MODEL_PATH):
-        st.error(f"Model file '{MODEL_PATH}' does not exist. Downloading...")
-        download_model_from_gdrive(MODEL_ID, MODEL_PATH)
+        st.error(f"El archivo del modelo '{MODEL_PATH}' no existe. Descargando...")
+        descargar_modelo_desde_gdrive(MODEL_ID, MODEL_PATH)
 
     try:
-        model = UNet(n_channels=4, n_classes=3) 
-        st.write(f"Trying to load the model from {MODEL_PATH}...")
+        modelo = UNet(canales_entrada=4, num_clases=3)  # Ajusta los canales de entrada si es necesario
+        st.write(f"Intentando cargar el modelo desde {MODEL_PATH}...")
         state_dict = torch.load(MODEL_PATH, map_location=torch.device("cpu"))
-        model.load_state_dict(state_dict)
-        model.eval()
-        st.success("Model loaded successfully.")
-        return model
+        modelo.load_state_dict(state_dict)
+        modelo.eval()
+        st.success("Modelo cargado correctamente.")
+        return modelo
     except Exception as e:
-        st.error(f"Error loading model: {str(e)}")
+        st.error(f"Error al cargar el modelo: {str(e)}")
         st.write(traceback.format_exc())
     return None
 
-# --- Main Application Logic ---
+# --- Lógica principal de la aplicación ---
 if __name__ == "__main__":
 
-    model = load_model()
+    modelo = cargar_modelo()
 
-    # Sidebar
-    st.sidebar.title("Navigation")
+    # Barra lateral
+    st.sidebar.title("Navegación")
     pagina = st.sidebar.radio(
-        "Go to",
+        "Ir a",
         [
-            "MRI Visualization",
-            "Segmentation Results",
-            "Legends",
-            "User Manual",
-            "Surgical Planning",
+            "Visualización MRI",
+            "Resultados de Segmentación",
+            "Leyendas",
+            "Manual de Usuario",
+            "Planificación Quirúrgica",
         ],
     )
 
-    # --- MRI Visualization Page ---
-    if pagina == "MRI Visualization":
-        st.title("MRI Visualization")
-        st.write("Upload NIfTI files of different modalities to view slices.")
+    # --- Página de Visualización MRI ---
+    if pagina == "Visualización MRI":
+        st.title("Visualización de Imágenes MRI")
+        st.write("Sube los archivos NIfTI de diferentes modalidades para visualizar los cortes.")
 
-        t1_file = st.file_uploader("Upload the T1-weighted file (T1)", type=["nii", "nii.gz"])
-        t1c_file = st.file_uploader("Upload the T1 file with contrast (T1c)", type=["nii", "nii.gz"])
-        t2_file = st.file_uploader("Upload the T2-weighted (T2) file", type=["nii", "nii.gz"])
-        flair_file = st.file_uploader("Upload the T2-FLAIR file", type=["nii", "nii.gz"])
+        archivo_t1 = st.file_uploader("Sube el archivo T1-weighted (T1)", type=["nii", "nii.gz"])
+        archivo_t1c = st.file_uploader("Sube el archivo T1 con contraste (T1c)", type=["nii", "nii.gz"])
+        archivo_t2 = st.file_uploader("Sube el archivo T2-weighted (T2)", type=["nii", "nii.gz"])
+        archivo_flair = st.file_uploader("Sube el archivo T2-FLAIR", type=["nii", "nii.gz"])
 
-        if t1_file:
-            t1_data = load_nifti1(t1_file)
-            if t1_data is not None:
-                plot_mri_slices1(t1_data, "T1-weighted")
+        if archivo_t1:
+            datos_t1 = cargar_nifti1(archivo_t1)
+            if datos_t1 is not None:
+                mostrar_cortes_mri1(datos_t1, "T1-weighted")
 
-        if t1c_file:
-            t1c_data = load_nifti1(t1c_file)
-            if t1c_data is not None:
-                plot_mri_slices1(t1c_data, "T1c (with contrast)")
+        if archivo_t1c:
+            datos_t1c = cargar_nifti1(archivo_t1c)
+            if datos_t1c is not None:
+                mostrar_cortes_mri1(datos_t1c, "T1c (con contraste)")
 
-        if t2_file:
-            t2_data = load_nifti1(t2_file)
-            if t2_data is not None:
-                plot_mri_slices1(t2_data, "T2-weighted")
+        if archivo_t2:
+            datos_t2 = cargar_nifti1(archivo_t2)
+            if datos_t2 is not None:
+                mostrar_cortes_mri1(datos_t2, "T2-weighted")
 
-        if flair_file:
-            flair_data = load_nifti1(flair_file)
-            if flair_data is not None:
-                plot_mri_slices1(flair_data, "T2-FLAIR")
+        if archivo_flair:
+            datos_flair = cargar_nifti1(archivo_flair)
+            if datos_flair is not None:
+                mostrar_cortes_mri1(datos_flair, "T2-FLAIR")
 
-    
-# --- "Segmentation Results" Section ---
-    elif pagina == "Segmentation Results":
-        st.title("Segmentation Results")
-        st.write("The results of the tumor segmentation will be shown here. Upload the stacked file (stack) to segment.")
 
-        uploaded_stack = st.file_uploader(
-            "Upload the stacked MRI file (.npy or .nii/.nii.gz)", 
+    # --- Sección "Resultados de Segmentación" ---
+    elif pagina == "Resultados de Segmentación":
+        st.title("Resultados de Segmentación")
+        st.write("Aquí se mostrarán los resultados de la segmentación del tumor. Sube el archivo apilado (stack) para segmentar.")
+
+        pila_cargada = st.file_uploader(
+            "Sube el archivo apilado de MRI (.npy o .nii/.nii.gz)",
             type=["npy", "nii", "nii.gz"]
         )
 
-        if uploaded_stack is not None:
+        if pila_cargada is not None:
             try:
-                # Loading Data
-                if uploaded_stack.name.endswith('.npy'):
-                    img_data = np.load(uploaded_stack)
-                elif uploaded_stack.name.endswith(('.nii', '.nii.gz')):
-                    with tempfile.NamedTemporaryFile(delete=False, suffix=".nii.gz") as temp_file:
-                        temp_file.write(uploaded_stack.read())
-                        temp_file.flush() 
-                        nii_img = nib.load(temp_file.name)
-                        img_data = nii_img.get_fdata()  
-                        st.write("NIfTI file loaded successfully.")
-                    os.remove(temp_file.name) 
+                # Cargar datos
+                if pila_cargada.name.endswith('.npy'):
+                    datos_imagen = np.load(pila_cargada)
+                elif pila_cargada.name.endswith(('.nii', '.nii.gz')):
+                    with tempfile.NamedTemporaryFile(delete=False, suffix=".nii.gz") as archivo_temporal:
+                        archivo_temporal.write(pila_cargada.read())
+                        archivo_temporal.flush()
+                        imagen_nii = nib.load(archivo_temporal.name)
+                        datos_imagen = imagen_nii.get_fdata()
+                        st.write("Archivo NIfTI cargado correctamente.")
+                    os.remove(archivo_temporal.name)
                 else:
-                    st.error("Unsupported file type. Please upload a .npy or .nii/.nii.gz file.")
-                    st.stop()  
+                    st.error("Tipo de archivo no soportado. Por favor, carga un archivo .npy o .nii/.nii.gz.")
+                    st.stop()
 
-                # Dimension Checks
-                if len(img_data.shape) != 4:
-                    raise ValueError(f"Error: Expected 4 dimensions (height, width, depth, channels). Found: {img_data.shape}")
+                # Comprobaciones de dimensiones
+                if len(datos_imagen.shape) != 4:
+                    raise ValueError(f"Error: Se esperaban 4 dimensiones (alto, ancho, profundidad, canales). Se obtuvieron: {datos_imagen.shape}")
 
-                # Preprocess Volume
-                img_preprocessed = preprocess_volume(img_data)
+                # Preprocesar volumen
+                imagen_preprocesada = preprocesar_volumen(datos_imagen)
 
-                if img_preprocessed is not None and model is not None:
-                    # --- Slider ---
-                    slice_idx = st.slider(
-                        "Select an axial slice to segment",
+                if imagen_preprocesada is not None and modelo is not None:
+                    # --- Control deslizante ---
+                    indice_corte = st.slider(
+                        "Selecciona un corte axial para segmentar",
                         0,
-                        img_preprocessed.shape[2] - 1,
-                        img_preprocessed.shape[2] // 2,
+                        imagen_preprocesada.shape[2] - 1,
+                        imagen_preprocesada.shape[2] // 2,
                     )
 
                     with torch.no_grad():
-                        img_slice = img_preprocessed[:, :, slice_idx, :]
-                        img_tensor = torch.tensor(img_slice).unsqueeze(0).float()
-                        img_tensor = img_tensor.permute(0, 3, 1, 2)
-                        pred = model(img_tensor)
-                        pred = torch.sigmoid(pred).squeeze(0).cpu().numpy() 
+                        # --- Seleccionar el corte ---
+                        corte_imagen = imagen_preprocesada[:, :, indice_corte, :]
 
-                    # --- Visualization ---
-                    plot_mri_slices(img_preprocessed[:, :, :, 0], "Original T1", overlay=pred)
+                        # --- Inferencia para un solo corte ---
+                        tensor_imagen = torch.tensor(corte_imagen).unsqueeze(0).float()
+                        tensor_imagen = tensor_imagen.permute(0, 3, 1, 2) 
+                        prediccion = modelo(tensor_imagen)
+
+                        # --- Procesar 'pred' ---
+                        prediccion = torch.sigmoid(prediccion).squeeze(0).cpu().numpy()
+
+                    # --- Visualización ---
+                    mostrar_cortes_mri(imagen_preprocesada[:, :, :, 0], "T1 Original", superposicion=prediccion)
 
             except Exception as e:
-                st.error(f"Error during segmentation: {e}")
+                st.error(f"Error durante la segmentación: {e}")
                 st.write(traceback.format_exc())
-            
-# --- Legend Page ---
-    elif pagina == "Legends":
-        st.title("Segmentation Legends")
+
+    # --- Página de Leyendas ---
+    elif pagina == "Leyendas":
+        st.title("Leyendas de Segmentación")
         st.write(
             """
-        In the segmented images, each value represents a type of tissue. Below is the legend to interpret the images:
+        En las imágenes segmentadas, cada valor representa un tipo de tejido. A continuación se muestra la leyenda para interpretar las imágenes:
 
-        - 0: Background
-        - 1: Necrotic tumor core (red)
-        - 2: Enhanced Tumor (yellow)
-        - 3: Peritumoral edematous tissue (green)
+        - 0: Fondo
+        - 1: Núcleo de tumor necrótico (rojo)
+        - 2: Tumor realzado (amarillo)
+        - 3: Tejido edematoso peritumoral (verde)
         """
         )
 
-# --- User Manual Page ---
-    elif pagina == "User Manual":
-        st.title("User Manual")
+    # --- Página del Manual de Usuario ---
+    elif pagina == "Manual de Usuario":
+        st.title("Manual de Usuario")
         st.write(
             """
-        MRI Viewer User Manual:
+        Manual de Uso del Visualizador de MRI:
 
-        1. Load Files: 
-            - To Visualize: Upload MRI files in NIfTI format for each modality (T1, T2, T1c, FLAIR) on the "MRI Visualization" page. You can upload a single file that contains all modalities or each modality separately. 
-            - For Segmentation: Upload a single file containing all 4 modalities (T1, T2, T1c, FLAIR) on the "Segmentation Results" page.
-        2. Slice Viewing: Use the slider to select the axial slice you wish to view.
-        3. Segmentation: Once you have uploaded a valid file, segmentation will run automatically and be displayed alongside the original image.
-        4. Interpretation: Use the Legend page to understand the meaning of the colors in the segmentation.
-        5. Surgical Planning: The "Surgical Planning" page provides information on how segmentation can assist in planning surgeries.
+        1. Cargar Archivos: 
+            - Para visualizar: Sube los archivos MRI en formato NIfTI para cada modalidad (T1, T2, T1c, FLAIR) en la página "Visualización MRI". Puedes subir un único archivo que contenga todas las modalidades o cada modalidad por separado. 
+            - Para segmentar: Sube un único archivo que contenga las 4 modalidades (T1, T2, T1c, FLAIR) en la página "Resultados de Segmentación".
+        2. Visualización de Cortes: Usa el control deslizante para seleccionar el corte axial que desees visualizar.
+        3. Segmentación: Una vez que hayas cargado un archivo válido, la segmentación se ejecutará automáticamente y se mostrará junto a la imagen original.
+        4. Interpretación: Utiliza la página de Leyendas para entender el significado de los colores en la segmentación.
+        5. Planificación Quirúrgica: La página "Planificación Quirúrgica" proporciona información sobre cómo la segmentación puede ayudar en la planificación de cirugías.
         """
         )
 
-    # --- Surgical Planning Page ---
-    elif pagina == "Surgical Planning":
-        st.title("Applications in Surgical Planning")
+    # --- Página sobre Planificación Quirúrgica ---
+    elif pagina == "Planificación Quirúrgica":
+        st.title("Aplicaciones en la Planificación Quirúrgica")
         st.write(
             """
-        Brain image segmentation plays a crucial role in planning surgeries for the resection of brain tumors. 
-        By identifying the tumor core, edematous tissue, and enhanced tumor, surgeons can plan precise strategies for surgical intervention.
+        La segmentación de imágenes cerebrales juega un papel crucial en la planificación de cirugías para la resección de tumores cerebrales. 
+        Al identificar el núcleo del tumor, el tejido edematoso y el tumor realzado, los cirujanos pueden planificar estrategias precisas para la intervención quirúrgica.
 
-        This visualization and segmentation system allows physicians to:
-        1. Observe the structure of the tumor in detail.
-        2. Identify critical areas and risk zones.
-        3. Plan the safest and most effective surgical route.
-        4. Estimate tumor volume and extent of resection required.
-        5. Assess tumor proximity to important brain structures.
+        Este sistema de visualización y segmentación permite a los médicos:
+        1. Observar la estructura del tumor en detalle.
+        2. Identificar áreas críticas y zonas de riesgo.
+        3. Planificar la ruta quirúrgica más segura y efectiva.
+        4. Estimar el volumen del tumor y la extensión de la resección necesaria.
+        5. Evaluar la proximidad del tumor a estructuras cerebrales importantes.
 
-        The accuracy of this information is vital for:
-        - Maximizing tumor removal.
-        - Minimizing damage to healthy brain tissue.
-        - Improve the patient's postoperative outcomes.
-        - Facilitate communication between the medical team and the patient.
+        La precisión de esta información es vital para:
+        - Maximizar la extirpación del tumor.
+        - Minimizar el daño al tejido cerebral sano.
+        - Mejorar los resultados postoperatorios del paciente.
+        - Facilitar la comunicación entre el equipo médico y con el paciente.
 
-        **Remember that this tool is an aid to clinical decision-making and should be used in conjunction with the experience of the neurosurgeon and other relevant clinical data.**
+        **Recuerda que esta herramienta es un apoyo a la decisión clínica y debe utilizarse en conjunto con la experiencia del neurocirujano y otros datos clínicos relevantes.**
         """
         )
 
-# --- Footer ---
+# --- Mensaje de pie de página ---
 st.sidebar.markdown("---")
-st.sidebar.info("Developed by ACSI Group 1")
+st.sidebar.info("Desarrollado por el Grupo 1 de ACSI")
