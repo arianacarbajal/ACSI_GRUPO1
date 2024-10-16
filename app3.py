@@ -109,9 +109,10 @@ def load_nifti1(file):
 def plot_mri_slices1(data, modality):
     st.subheader(f"{modality} MRI")
     slice_idx = st.slider(f"Selecciona un corte axial para {modality}", 0, data.shape[2] - 1, data.shape[2] // 2)
-    plt.imshow(data[:, :, slice_idx], cmap='gray')
-    plt.axis('off')
-    st.pyplot(plt)
+    fig, ax = plt.subplots()
+    ax.imshow(data[:, :, slice_idx], cmap='gray')
+    ax.axis('off')
+    st.pyplot(fig)
 
 @st.cache_resource
 def load_model():
@@ -133,26 +134,8 @@ def load_model():
         st.write(traceback.format_exc())
     return None
 
-# --- Lógica principal de la aplicación ---
-def main():
-    model = load_model()
-
-    # Barra lateral
-    st.sidebar.title("Navegación")
-    pagina = st.sidebar.radio(
-        "Ir a",
-        [
-            "Visualización MRI",
-            "Resultados de Segmentación",
-            "Leyendas",
-            "Manual de Usuario",
-            "Planificación Quirúrgica",
-        ],
-    )
-
-    # --- Página de Visualización MRI ---
-    # Página de visualización MRI
-if pagina == "Visualización MRI":
+# --- Funciones para cada página ---
+def visualizacion_mri():
     st.title("Visualización de MRI")
     st.write("Sube los archivos NIfTI de diferentes modalidades para visualizar los cortes.")
 
@@ -182,10 +165,7 @@ if pagina == "Visualización MRI":
             if flair_data is not None:
                 plot_mri_slices1(flair_data, "T2-FLAIR")
 
-   
-    
-# --- Sección "Resultados de Segmentación" ---
-elif pagina == "Resultados de Segmentación":
+def resultados_segmentacion():
     st.title("Resultados de Segmentación")
     st.write("Aquí se mostrarán los resultados de la segmentación del tumor. Sube el archivo apilado (stack) para segmentar.")
 
@@ -215,39 +195,15 @@ elif pagina == "Resultados de Segmentación":
             if len(img_data.shape) != 4:
                 raise ValueError(f"Error: Se esperaban 4 dimensiones (alto, ancho, profundidad, canales). Se obtuvieron: {img_data.shape}")
 
-            # Preprocesar volumen
-            img_preprocessed = preprocess_volume(img_data)
-
-            if img_preprocessed is not None and model is not None:
-                # --- Control deslizante ---
-                slice_idx = st.slider(
-                    "Selecciona un corte axial para segmentar",
-                    0,
-                    img_preprocessed.shape[2] - 1,
-                    img_preprocessed.shape[2] // 2,
-                )
-
-                with torch.no_grad():
-                    # --- Seleccionar el corte ---
-                    img_slice = img_preprocessed[:, :, slice_idx, :]
-
-                    # --- Inferencia para un solo corte ---
-                    img_tensor = torch.tensor(img_slice).unsqueeze(0).float()
-                    img_tensor = img_tensor.permute(0, 3, 1, 2)  # Ajustar dimensiones para el modelo 
-                    pred = model(img_tensor)
-
-                    # --- Procesar 'pred' ---
-                    pred = torch.sigmoid(pred).squeeze(0).cpu().numpy() 
-
-                # --- Visualización ---
-                plot_mri_slices(img_preprocessed[:, :, :, 0], "T1 Original", overlay=pred)
+            # Aquí iría el código para preprocesar y segmentar la imagen
+            # Por ahora, solo mostraremos un mensaje
+            st.write("Imagen cargada correctamente. La segmentación se implementará en futuras versiones.")
 
         except Exception as e:
-            st.error(f"Error durante la segmentación: {e}")
+            st.error(f"Error durante la carga o segmentación: {e}")
             st.write(traceback.format_exc())
-            
-# --- Página de Leyendas ---
-elif pagina == "Leyendas":
+
+def leyendas():
     st.title("Leyendas de Segmentación")
     st.write(
         """
@@ -260,15 +216,14 @@ elif pagina == "Leyendas":
     """
     )
 
-# --- Página del Manual de Usuario ---
-elif pagina == "Manual de Usuario":
+def manual_usuario():
     st.title("Manual de Usuario")
     st.write(
         """
     Manual de Uso del Visualizador de MRI:
 
     1. Cargar Archivos: 
-        - Para visualizar: Sube los archivos MRI en formato NIfTI para cada modalidad (T1, T2, T1c, FLAIR) en la página "Visualización MRI". Puedes subir un único archivo que contenga todas las modalidades o cada modalidad por separado. 
+        - Para visualizar: Sube los archivos MRI en formato NIfTI para cada modalidad (T1, T2, T1c, FLAIR) en la página "Visualización MRI".
         - Para segmentar: Sube un único archivo que contenga las 4 modalidades (T1, T2, T1c, FLAIR) en la página "Resultados de Segmentación".
     2. Visualización de Cortes: Usa el control deslizante para seleccionar el corte axial que desees visualizar.
     3. Segmentación: Una vez que hayas cargado un archivo válido, la segmentación se ejecutará automáticamente y se mostrará junto a la imagen original.
@@ -277,8 +232,7 @@ elif pagina == "Manual de Usuario":
     """
     )
 
-    # --- Página sobre Planificación Quirúrgica ---
-elif pagina == "Planificación Quirúrgica":
+def planificacion_quirurgica():
     st.title("Aplicaciones en la Planificación Quirúrgica")
     st.write(
         """
@@ -302,6 +256,34 @@ elif pagina == "Planificación Quirúrgica":
     """
     )
 
-# --- Mensaje de pie de página ---
-st.sidebar.markdown("---")
-st.sidebar.info("Desarrollado por el Grupo 1 de ACSI")
+# --- Lógica principal de la aplicación ---
+def main():
+    model = load_model()
+
+    # Barra lateral
+    st.sidebar.title("Navegación")
+    pagina = st.sidebar.radio(
+        "Ir a",
+        [
+            "Visualización MRI",
+            "Resultados de Segmentación",
+            "Leyendas",
+            "Manual de Usuario",
+            "Planificación Quirúrgica",
+        ],
+    )
+
+    # Navegación
+    if pagina == "Visualización MRI":
+        visualizacion_mri()
+    elif pagina == "Resultados de Segmentación":
+        resultados_segmentacion()
+    elif pagina == "Leyendas":
+        leyendas()
+    elif pagina == "Manual de Usuario":
+        manual_usuario()
+    elif pagina == "Planificación Quirúrgica":
+        planificacion_quirurgica()
+
+if __name__ == "__main__":
+    main()
