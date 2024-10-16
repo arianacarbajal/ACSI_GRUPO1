@@ -141,22 +141,32 @@ def plot_mri_slices(data, modality, overlay=None):
     ax.axis("off")
     st.pyplot(fig)
 
-@st.cache_resource  # Carga el modelo una vez y lo mantiene en caché
+@st.cache_resource
 def load_model():
-    st.write("Cargando el modelo...")
     if not os.path.exists(MODEL_PATH):
-        st.error(f"El archivo del modelo '{MODEL_PATH}' no existe. Descargando...")
-        download_model_from_gdrive(MODEL_ID, MODEL_PATH)
+        # ... (Código para descargar el modelo)
 
     try:
-        model = torch.load(MODEL_PATH, map_location=torch.device('cpu'))
-        model.eval()  # Pon el modelo en modo de evaluación
+        # 1. Cargar el state_dict 
+        state_dict = torch.load(MODEL_PATH, map_location=torch.device('cpu'))
+
+        # 2. Crear una nueva instancia del modelo U-Net
+        model = UNet(n_channels=4, n_classes=3)  # Define tu clase UNet aquí o impórtala 
+
+        # 3. Cargar los parámetros del state_dict en el modelo
+        model.load_state_dict(state_dict)
+
+        # 4. Poner el modelo en modo de evaluación
+        model.eval()
+
         st.success("Modelo cargado correctamente.")
         return model
+
     except Exception as e:
         st.error(f"Error al cargar el modelo: {str(e)}")
-        st.write(traceback.format_exc())
-        return None
+        st.write(traceback.format_exc())  # Imprime el traceback si hay un error
+        return None 
+
 
 # --- Lógica principal de la aplicación ---
 if __name__ == "__main__":
