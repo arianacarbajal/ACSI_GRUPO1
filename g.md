@@ -1,13 +1,9 @@
 ```mermaid
-graph TD
+graph LR
     A[Inicio] --> B[Sintetizar hidrogeles de colágeno y quitosano]
-    B --> C[Realizar pruebas reológicas de biotintas]
-    C --> D[Caracterizar propiedades reológicas y de imprimibilidad]
-    D --> E[Desarrollar modelo de red neuronal]
-    E --> F[Entrenar modelo con datos experimentales]
-    F --> G[Optimizar condiciones de bioimpresión]
-    G --> H[Evaluar biotintas óptimas]
-    H --> I[Pruebas de absorción, liberación de fármacos y proliferación celular]
-    I --> J[Evaluar biocompatibilidad y adhesión celular]
-    J --> K[Comparar rendimiento con formulaciones tradicionales]
-    K --> L[Fin]
+    B --> C[Realizar pruebas reológicas y de imprimibilidad]
+    C --> D[Desarrollar y entrenar modelo de red neuronal]
+    D --> E[Optimizar condiciones de bioimpresión]
+    E --> F[Evaluar biocompatibilidad y rendimiento]
+    F --> G[Comparar con formulaciones tradicionales]
+    G --> H[Fin]
