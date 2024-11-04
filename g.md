@@ -7,7 +7,7 @@ graph TD
     E --> F[Entrenar modelo con datos experimentales]
     F --> G[Optimizar condiciones de bioimpresión]
     G --> H[Evaluar biotintas óptimas]
-    H --> I[Pruebas de absorción, liberación de fármacos y proliferación celular (MTT)]
+    H --> I[Pruebas de absorción, liberación de fármacos y proliferación celular]
     I --> J[Evaluar biocompatibilidad y adhesión celular]
     J --> K[Comparar rendimiento con formulaciones tradicionales]
     K --> L[Fin]
