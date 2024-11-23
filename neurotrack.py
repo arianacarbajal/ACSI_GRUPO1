@@ -251,17 +251,17 @@ if __name__ == "__main__":
 
     # Barra lateral
     st.sidebar.title("Navegación")
-  pagina = st.sidebar.radio(
-    "Ir a",
-    [
-        "Inicio",
-        "Visualización MRI",
-        "Resultados de Segmentación",
-        "Leyendas",
-        "Manual de Usuario",
-        "Planificación Quirúrgica",
-    ],
-)
+    pagina = st.sidebar.radio(
+        "Ir a",
+        [
+            "Inicio",
+            "Visualización MRI",
+            "Resultados de Segmentación",
+            "Leyendas",
+            "Manual de Usuario",
+            "Planificación Quirúrgica",
+        ],
+    )
 
 # --- Página de Inicio ---
 if pagina == "Inicio":
