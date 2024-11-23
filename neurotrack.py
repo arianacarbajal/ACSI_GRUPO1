@@ -244,24 +244,56 @@ def cargar_modelo():
     return None
 
 # --- Lógica principal de la aplicación ---
+
 if __name__ == "__main__":
 
     modelo = cargar_modelo()
 
     # Barra lateral
     st.sidebar.title("Navegación")
-    pagina = st.sidebar.radio(
-        "Ir a",
-        [
-            "Visualización MRI",
-            "Resultados de Segmentación",
-            "Leyendas",
-            "Manual de Usuario",
-            "Planificación Quirúrgica",
-        ],
-    )
+  pagina = st.sidebar.radio(
+    "Ir a",
+    [
+        "Inicio",
+        "Visualización MRI",
+        "Resultados de Segmentación",
+        "Leyendas",
+        "Manual de Usuario",
+        "Planificación Quirúrgica",
+    ],
+)
+
+# --- Página de Inicio ---
+if pagina == "Inicio":
+    st.title("NeuroTrack: Sistema de Planeación Quirúrgica Basada en Segmentación de Tumores Cerebrales")
+    st.write("""
+        Bienvenido a **NeuroTrack**, una herramienta avanzada diseñada para apoyar a los neurocirujanos
+        en la planificación quirúrgica de tumores cerebrales mediante la segmentación precisa de imágenes
+        de resonancia magnética (MRI).
+
+        ### Propósito del Sistema
+        NeuroTrack utiliza algoritmos de segmentación basados en aprendizaje profundo (Deep Learning) 
+        para identificar y diferenciar regiones clave dentro del cerebro afectadas por tumores. Estas regiones incluyen:
+        - **Núcleo necrótico del tumor**.
+        - **Tejido tumoral realzado**.
+        - **Zona edematosa peritumoral**.
+
+        ### ¿Cómo Funciona?
+        1. **Visualización**: Permite cargar y explorar imágenes MRI en varias modalidades (T1, T2, T1c, FLAIR).
+        2. **Segmentación**: Genera mapas precisos de las regiones afectadas por el tumor utilizando un modelo U-Net.
+        3. **Apoyo en la planeación quirúrgica**: Proporciona datos visuales claros para que los médicos puedan tomar decisiones informadas durante la preparación de cirugías.
+
+        ### Beneficios
+        - Mejora la precisión en la detección y planificación quirúrgica.
+        - Reduce el tiempo de preparación preoperatoria.
+        - Facilita la comunicación entre los miembros del equipo médico.
+        - Mejora los resultados postoperatorios para los pacientes.
+
+        Explora las diferentes secciones del sistema usando la barra de navegación a la izquierda. ¡Comencemos!
+    """)
 
     # --- Página de Visualización MRI ---
+
     if pagina == "Visualización MRI":
         st.title("Visualización de Imágenes MRI")
         st.write("Sube los archivos NIfTI de diferentes modalidades para visualizar los cortes.")
