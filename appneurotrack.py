@@ -278,7 +278,7 @@ if __name__ == "__main__":
         - **Tejido tumoral realzado**.
         - **Zona edematosa peritumoral**.
         """)
-        url_imagen = "https://drive.google.com/file/d/17Myaa-ka13X8TR5uXZ2HVupFDx1mam5q"
+        url_imagen = "https://drive.google.com/uc?id=17Myaa-ka13X8TR5uXZ2HVupFDx1mam5q"
         ruta_imagen = "imagen_intro.png"
         try:
             gdown.download(url_imagen, ruta_imagen, quiet=True)
