@@ -280,15 +280,15 @@ if __name__ == "__main__":
         """)
         url_imagen = "https://drive.google.com/uc?id=17Myaa-ka13X8TR5uXZ2HVupFDx1mam5q"
         ruta_imagen = "imagen_intro.png"
-         try:
-             gdown.download(url_imagen, ruta_imagen, quiet=True)
-             if os.path.exists(ruta_imagen):
-                 imagen = Image.open(ruta_imagen)
-                 st.image(imagen, caption="Representación gráfica del sistema NeuroTrack", use_column_width=True)
-             else:
-                 st.error("No se pudo descargar la imagen. Verifica los permisos del archivo.")
-         except Exception as e:
-             st.error(f"Error al descargar o cargar la imagen: {e}")
+        try:
+            gdown.download(url_imagen, ruta_imagen, quiet=True)
+            if os.path.exists(ruta_imagen):
+                imagen = Image.open(ruta_imagen)
+                st.image(imagen, caption="Representación gráfica del sistema NeuroTrack", use_column_width=True)
+            else:
+                st.error("No se pudo descargar la imagen. Verifica los permisos del archivo.")
+        except Exception as e:
+            st.error(f"Error al descargar o cargar la imagen: {e}")
              
         st.write("""Explora las diferentes secciones del sistema usando la barra de navegación a la izquierda. ¡Comencemos!""")
     elif pagina == "Visualización MRI":
