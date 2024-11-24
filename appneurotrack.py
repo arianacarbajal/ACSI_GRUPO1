@@ -110,9 +110,7 @@ class UNet(nn.Module):
 # --- Funciones auxiliares ---
 @st.cache_data
 def descargar_modelo_desde_gdrive(model_id, ruta_modelo):
-    try:
-        gdown.download(f'https://drive.google.com/uc?id={model_id}', ruta_modelo, quiet=False)
-    return ruta_modelo
+    gdown.download(f'https://drive.google.com/uc?id={model_id}', ruta_modelo, quiet=False)
 
 
 def cargar_nifti1(archivo):
