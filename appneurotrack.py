@@ -110,7 +110,11 @@ class UNet(nn.Module):
 # --- Funciones auxiliares ---
 @st.cache_data
 def descargar_modelo_desde_gdrive(model_id, ruta_modelo):
-    gdown.download(f'https://drive.google.com/uc?id={model_id}', ruta_modelo, quiet=False)
+    try:
+        gdown.download(f'https://drive.google.com/uc?id={model_id}', ruta_modelo, quiet=True)
+    except Exception as e:
+        # Opcionalmente puedes registrar el error en un archivo log o simplemente ignorarlo
+        pass
 
 
 def cargar_nifti1(archivo):
@@ -227,11 +231,11 @@ def cargar_modelo():
 
     try:
         modelo = UNet(canales_entrada=4, num_clases=3)  # Ajusta los canales de entrada si es necesario
-        st.write(f"Intentando cargar el modelo desde {MODEL_PATH}...")
+        #st.write(f"Intentando cargar el modelo desde {MODEL_PATH}...")
         state_dict = torch.load(MODEL_PATH, map_location=torch.device("cpu"))
         modelo.load_state_dict(state_dict)
         modelo.eval()
-        st.success("Modelo cargado correctamente.")
+        #st.success("Modelo cargado correctamente.")
         return modelo
     except Exception as e:
         st.error(f"Error al cargar el modelo: {str(e)}")
@@ -262,15 +266,13 @@ if __name__ == "__main__":
         st.title("NeuroTrack: Software de Planeación Quirúrgica Basada en Segmentación de Tumores Cerebrales")
         st.write(""" Bienvenido a **NeuroTrack**, una herramienta avanzada diseñada para apoyar a los neurocirujanos
         en la planificación quirúrgica de tumores cerebrales mediante la segmentación precisa de imágenes
-        de resonancia magnética (MRI).
+        de resonancia magnética (MRI).""")
 
-        ### Propósito del Sistema
-        NeuroTrack utiliza algoritmos de segmentación basados en aprendizaje profundo (Deep Learning) 
-        para identificar y diferenciar regiones clave dentro del cerebro afectadas por tumores. Estas regiones incluyen:
+        st.write(""" ### Propósito del Sistema
+        NeuroTrack utiliza algoritmos de segmentación basados en aprendizaje profundo  para identificar y diferenciar regiones clave dentro del cerebro afectadas por tumores. Estas regiones incluyen:
         - **Núcleo necrótico del tumor**.
         - **Tejido tumoral realzado**.
         - **Zona edematosa peritumoral**.
-
 
         Explora las diferentes secciones del sistema usando la barra de navegación a la izquierda. ¡Comencemos!
     """)
