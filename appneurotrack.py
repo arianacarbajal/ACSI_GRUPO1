@@ -11,6 +11,7 @@ import os
 import gdown
 import traceback
 import io
+from PIL import Image
 
 # --- Configuración de la página ---
 st.set_page_config(page_title="Neurotrack", layout="wide")
@@ -278,10 +279,16 @@ if __name__ == "__main__":
         - **Zona edematosa peritumoral**.
         """)
         url_imagen = "https://drive.google.com/uc?id=17Myaa-ka13X8TR5uXZ2HVupFDx1mam5q"
-        ruta_imagen = "imagen_intro.png"  
-        gdown.download(url_imagen, ruta_imagen, quiet=True)
-        imagen = Image.open(ruta_imagen)
-        st.image(imagen, caption="Representación gráfica deL resultado de NeuroTrack", use_column_width=True)
+        ruta_imagen = "imagen_intro.png"
+        try:
+            gdown.download(url_imagen, ruta_imagen, quiet=True)
+            if not os.path.exists(ruta_imagen):
+                st.error("Error: No se pudo descargar la imagen desde Google Drive.")
+            else:
+                imagen = Image.open(ruta_imagen)
+                st.image(imagen, caption="Representación gráfica del sistema NeuroTrack", use_column_width=True)
+        except Exception as e:
+            st.error(f"Error al descargar o cargar la imagen: {e}")
 
         st.write("""Explora las diferentes secciones del sistema usando la barra de navegación a la izquierda. ¡Comencemos!""")
     elif pagina == "Visualización MRI":
