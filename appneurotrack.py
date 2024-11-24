@@ -112,9 +112,6 @@ class UNet(nn.Module):
 def descargar_modelo_desde_gdrive(model_id, ruta_modelo):
     try:
         gdown.download(f'https://drive.google.com/uc?id={model_id}', ruta_modelo, quiet=False)
-        #st.success(f"Modelo descargado y guardado en {ruta_modelo}")
-    except Exception as e:
-        st.error(f"Error al descargar el modelo: {str(e)}")
     return ruta_modelo
 
 
