@@ -267,11 +267,11 @@ if __name__ == "__main__":
         st.write(""" Bienvenido a **NeuroTrack**, una herramienta avanzada diseñada para apoyar a los neurocirujanos
         en la planificación quirúrgica de tumores cerebrales mediante la segmentación precisa de imágenes
         de resonancia magnética (MRI).""")
-
-        st.write(""" ### Propósito del Sistema""")
-        st.write(""" NeuroTrack utiliza algoritmos de segmentación basados en aprendizaje profundo  para identificar y
-        diferenciar regiones clave dentro del cerebro afectadas por tumores. 
         
+        st.write("""
+        ### Propósito del Sistema
+        NeuroTrack utiliza algoritmos de segmentación basados en aprendizaje profundo 
+        para identificar y diferenciar regiones clave dentro del cerebro afectadas por tumores.
         Estas regiones incluyen:
         - **Núcleo necrótico del tumor**.
         - **Tejido tumoral realzado**.
