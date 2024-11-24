@@ -227,7 +227,7 @@ def mostrar_cortes_mri(datos, modalidad, superposicion=None):
 def cargar_modelo():
     #st.write("Cargando el modelo...")
     if not os.path.exists(MODEL_PATH):
-        st.error(f"El archivo del modelo '{MODEL_PATH}' no existe. Descargando...")
+        #st.error(f"El archivo del modelo '{MODEL_PATH}' no existe. Descargando...")
         descargar_modelo_desde_gdrive(MODEL_ID, MODEL_PATH)
 
     try:
