@@ -264,8 +264,8 @@ if __name__ == "__main__":
 
     # --- Página de Visualización MRI ---
     if pagina == "Inicio":
-      st.title("NeuroTrack: Sistema de Planeación Quirúrgica Basada en Segmentación de Tumores Cerebrales")
-      st.write("""Bienvenido a **NeuroTrack**, una herramienta avanzada diseñada para apoyar a los neurocirujanos
+        st.title("NeuroTrack: Software de Planeación Quirúrgica Basada en Segmentación de Tumores Cerebrales")
+        st.write(""" Bienvenido a **NeuroTrack**, una herramienta avanzada diseñada para apoyar a los neurocirujanos
         en la planificación quirúrgica de tumores cerebrales mediante la segmentación precisa de imágenes
         de resonancia magnética (MRI).
 
@@ -275,7 +275,10 @@ if __name__ == "__main__":
         - **Núcleo necrótico del tumor**.
         - **Tejido tumoral realzado**.
         - **Zona edematosa peritumoral**.
-        Explora las diferentes secciones del sistema usando la barra de navegación a la izquierda. ¡Comencemos!""")
+
+
+        Explora las diferentes secciones del sistema usando la barra de navegación a la izquierda. ¡Comencemos!
+    """)
     elif pagina == "Visualización MRI":
         st.title("Visualización de Imágenes MRI")
         st.write("Sube los archivos NIfTI de diferentes modalidades para visualizar los cortes.")
