@@ -279,7 +279,7 @@ if __name__ == "__main__":
         - **Zona edematosa peritumoral**.
         """)
         ruta_imagen = "ejemplo.png"  
-        st.image(ruta_imagen, caption="Representación gráfica del resultado del sistema NeuroTrack", use_column_width=True)             
+        st.image(ruta_imagen, caption="Representación Visual de los Resultados del Análisis con NeuroTrackk", use_column_width=True)             
         st.write("""Explora las diferentes secciones del sistema usando la barra de navegación a la izquierda. ¡Comencemos!""")
     elif pagina == "Visualización MRI":
         st.title("Visualización de Imágenes MRI")
