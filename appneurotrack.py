@@ -224,7 +224,7 @@ def mostrar_cortes_mri(datos, modalidad, superposicion=None):
 
 @st.cache_resource
 def cargar_modelo():
-    st.write("Cargando el modelo...")
+    #st.write("Cargando el modelo...")
     if not os.path.exists(MODEL_PATH):
         st.error(f"El archivo del modelo '{MODEL_PATH}' no existe. Descargando...")
         descargar_modelo_desde_gdrive(MODEL_ID, MODEL_PATH)
@@ -268,14 +268,13 @@ if __name__ == "__main__":
         en la planificación quirúrgica de tumores cerebrales mediante la segmentación precisa de imágenes
         de resonancia magnética (MRI).""")
 
-        st.write(""" ### Propósito del Sistema
-        NeuroTrack utiliza algoritmos de segmentación basados en aprendizaje profundo  para identificar y diferenciar regiones clave dentro del cerebro afectadas por tumores. Estas regiones incluyen:
+        st.write(""" ### Propósito del Sistema""")
+        st.write(""" NeuroTrack utiliza algoritmos de segmentación basados en aprendizaje profundo  para identificar y diferenciar regiones clave dentro del cerebro afectadas por tumores. Estas regiones incluyen:
         - **Núcleo necrótico del tumor**.
         - **Tejido tumoral realzado**.
-        - **Zona edematosa peritumoral**.
+        - **Zona edematosa peritumoral**.""")
 
-        Explora las diferentes secciones del sistema usando la barra de navegación a la izquierda. ¡Comencemos!
-    """)
+        st.write("""Explora las diferentes secciones del sistema usando la barra de navegación a la izquierda. ¡Comencemos!""")
     elif pagina == "Visualización MRI":
         st.title("Visualización de Imágenes MRI")
         st.write("Sube los archivos NIfTI de diferentes modalidades para visualizar los cortes.")
