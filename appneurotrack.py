@@ -269,10 +269,14 @@ if __name__ == "__main__":
         de resonancia magnética (MRI).""")
 
         st.write(""" ### Propósito del Sistema""")
-        st.write(""" NeuroTrack utiliza algoritmos de segmentación basados en aprendizaje profundo  para identificar y diferenciar regiones clave dentro del cerebro afectadas por tumores. Estas regiones incluyen:
+        st.write(""" NeuroTrack utiliza algoritmos de segmentación basados en aprendizaje profundo  para identificar y
+        diferenciar regiones clave dentro del cerebro afectadas por tumores. 
+        
+        Estas regiones incluyen:
         - **Núcleo necrótico del tumor**.
         - **Tejido tumoral realzado**.
-        - **Zona edematosa peritumoral**.""")
+        - **Zona edematosa peritumoral**.
+        """)
 
         st.write("""Explora las diferentes secciones del sistema usando la barra de navegación a la izquierda. ¡Comencemos!""")
     elif pagina == "Visualización MRI":
