@@ -138,7 +138,7 @@ def mostrar_cortes_mri1(datos, modalidad):
 
 def preprocesar_volumen(volumen, forma_objetivo=(128, 128)):
     """
-    Preprocesa un volumen 4D (o 3D si se trata de un solo canal) para que sea compatible con
+    Preprocesa un volumen 4D (o 3D si se trata de un solo canal) para que sea compatible co
     el modelo U-Net 2D.
 
     Args:
@@ -156,7 +156,7 @@ def preprocesar_volumen(volumen, forma_objetivo=(128, 128)):
 
     # 1. Recortar la profundidad (si es necesario)
     CORTE_INICIAL = 0
-    CORTE_FINAL = 154   
+    CORTE_FINAL = 155  
     volumen = volumen[:, :, CORTE_INICIAL:CORTE_FINAL]
 
     # 2. Redimensionar las dimensiones espaciales (si es necesario)
