@@ -136,11 +136,11 @@ def mostrar_cortes_mri1(datos, modalidad):
     plt.axis('off')
     st.pyplot(plt)
 
-# Función para cargar el modelo
+
 def cargar_modelo():
     try:
-        # Intentamos cargar el modelo desde el archivo
-        checkpoint = torch.load(MODEL_PATH)
+        # Intentamos cargar el modelo desde el archivo, especificando que se cargue en la CPU
+        checkpoint = torch.load(MODEL_PATH, map_location=torch.device('cpu'))
         
         # Extraer solo el 'model_state_dict'
         model_state_dict = checkpoint['model_state_dict']
