@@ -109,6 +109,7 @@ class UNet(nn.Module):
         return logits
 
 # --- Funciones auxiliares ---
+
 @st.cache_data
 def descargar_modelo_desde_gdrive(model_id, ruta_modelo):
     try:
@@ -134,114 +135,30 @@ def mostrar_cortes_mri1(datos, modalidad):
     plt.imshow(datos[:, :, indice_corte], cmap='gray')
     plt.axis('off')
     st.pyplot(plt)
-    
-def cargar_nifti(archivo):
-    if archivo is not None:
-        try:
-            with tempfile.NamedTemporaryFile(delete=False, suffix=".nii.gz") as temp_file:
-                temp_file.write(archivo.read())
-                temp_file.flush()
-                img = nib.load(temp_file.name)
-                return img.get_fdata(), img.shape
-        except Exception as e:
-            st.error(f"Error al cargar el archivo NIfTI: {str(e)}")
-    return None, None
 
-def preprocesar_volumen(volumen, forma_objetivo=(128, 128)):
-    """
-    Preprocesa un volumen 4D (o 3D si se trata de un solo canal) para que sea compatible con
-    el modelo U-Net 2D.
-
-    Args:
-        volumen (np.array): El volumen a preprocesar. Puede ser 3D (alto, ancho, profundidad)
-                           o 4D (alto, ancho, profundidad, canales).
-        forma_objetivo (tuple): La forma deseada para las dimensiones alto y ancho
-                             después del preprocesamiento (por defecto: (128, 128)).
-
-    Returns:
-        np.array: El volumen preprocesado con forma (alto, ancho, profundidad)
-                  o (alto, ancho, profundidad, canales), dependiendo del volumen de entrada.
-    """
-
-    st.write(f"Verificando las dimensiones del volumen cargado: {volumen.shape}")
-
-    # 1. Recortar la profundidad (si es necesario)
-    CORTE_INICIAL = 40  
-    CORTE_FINAL = 130   
-    volumen = volumen[:, :, CORTE_INICIAL:CORTE_FINAL]
-
-    # 2. Redimensionar las dimensiones espaciales (si es necesario)
-    if volumen.shape[0] != forma_objetivo[0] or volumen.shape[1] != forma_objetivo[1]:
-        st.write("Redimensionando volumen...")
-        factores = (
-            forma_objetivo[0] / volumen.shape[0],
-            forma_objetivo[1] / volumen.shape[1],
-            1,  # Factor 1 para mantener la profundidad
-        )
-        if len(volumen.shape) == 4:  # Si es 4D, redimensionamos cada canal
-            nueva_forma = (forma_objetivo[0], forma_objetivo[1], volumen.shape[2], volumen.shape[3])
-            volumen = zoom(volumen, factores + (1,), order=1)  # Interpolación lineal
-        else:
-            volumen = zoom(volumen, factores, order=1)
-        st.write(f"Nuevo tamaño del volumen después de redimensionar: {volumen.shape}")
-    else:
-        st.write("El volumen ya tiene la forma deseada. No se redimensionará.")
-
-    # 3. Normalizar
-    volumen = (volumen - volumen.min()) / (volumen.max() - volumen.min())
-
-    st.write(f"Shape del volumen después de preprocesar_volumen: {volumen.shape}")
-    return volumen
-
-def mostrar_cortes_mri(datos, modalidad, superposicion=None):
-    """Muestra cortes axiales de un volumen 3D, con la posibilidad de una superposición."""
-    st.subheader(f"MRI {modalidad}")
-
-    if len(datos.shape) < 3:
-        st.error(f"Error: Se esperaban al menos 3 dimensiones en los datos de imagen, pero se encontraron {len(datos.shape)}")
-        return
-
-    indice_corte = st.slider(
-        f"Selecciona un corte axial para {modalidad}",
-        0,
-        datos.shape[2] - 1,
-        datos.shape[2] // 2,
-    )
-
-    fig, ax = plt.subplots()
-    ax.imshow(datos[:, :, indice_corte], cmap="gray")  # Mostrar la imagen base en escala de grises
-
-    if superposicion is not None:
-        # --- Corrección en el manejo de la superposición ---
-        if superposicion.shape[1:] != datos.shape[:2]:  # Comparamos (alto, ancho)
-            st.error(f"Error: Las formas de la imagen y la máscara no coinciden: {datos.shape} vs {superposicion.shape}")
-            return
-        else:
-            # Mostrar el canal 0 de 'superposicion' usando el índice correcto
-            ax.imshow(superposicion[0, :, :], cmap="hot", alpha=0.6)
-
-    ax.axis("off")
-    st.pyplot(fig)
-
-@st.cache_resource
+# Función para cargar el modelo
 def cargar_modelo():
-    #st.write("Cargando el modelo...")
-    if not os.path.exists(MODEL_PATH):
-        #st.error(f"El archivo del modelo '{MODEL_PATH}' no existe. Descargando...")
-        descargar_modelo_desde_gdrive(MODEL_ID, MODEL_PATH)
-
     try:
-        modelo = UNet(canales_entrada=4, num_clases=3)  # Ajusta los canales de entrada si es necesario
-        #st.write(f"Intentando cargar el modelo desde {MODEL_PATH}...")
-        state_dict = torch.load(MODEL_PATH, map_location=torch.device("cpu"))
-        modelo.load_state_dict(state_dict)
-        modelo.eval()
-        #st.success("Modelo cargado correctamente.")
+        # Intentamos cargar el modelo desde el archivo
+        checkpoint = torch.load(MODEL_PATH)
+        
+        # Extraer solo el 'model_state_dict'
+        model_state_dict = checkpoint['model_state_dict']
+        
+        # Crear una instancia del modelo U-Net
+        modelo = UNet()
+        
+        # Cargar el estado del modelo en la instancia
+        modelo.load_state_dict(model_state_dict)
+        
+        modelo.eval()  # Establecer el modelo en modo evaluación
+        st.write("Modelo cargado correctamente.")
+        
         return modelo
     except Exception as e:
         st.error(f"Error al cargar el modelo: {str(e)}")
-        st.write(traceback.format_exc())
-    return None
+        st.stop()  # Detener la ejecución si el modelo no se carga correctamente
+
 
 # --- Lógica principal de la aplicación ---
 if __name__ == "__main__":
