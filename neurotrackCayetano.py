@@ -155,8 +155,8 @@ def preprocesar_volumen(volumen, forma_objetivo=(128, 128)):
     st.write(f"Verificando las dimensiones del volumen cargado: {volumen.shape}")
 
     # 1. Recortar la profundidad (si es necesario)
-    CORTE_INICIAL = 40  
-    CORTE_FINAL = 130   
+    CORTE_INICIAL = 0
+    CORTE_FINAL = 154   
     volumen = volumen[:, :, CORTE_INICIAL:CORTE_FINAL]
 
     # 2. Redimensionar las dimensiones espaciales (si es necesario)
