@@ -238,6 +238,7 @@ def cargar_modelo():
 
 # --- Lógica principal de la aplicación ---
 if __name__ == "__main__":
+    descargar_modelo_desde_gdrive(MODEL_ID, MODEL_PATH)
 
     modelo = cargar_modelo()
 
