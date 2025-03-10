@@ -17,7 +17,7 @@ from PIL import Image
 st.set_page_config(page_title="NeuroTrackCayetano", layout="wide")
 
 # ---  Configuración del modelo ---
-MODEL_ID = '1qb0pRpbX9PrZK5yRRAXU_N_0x_gLsWzq' # Reemplaza con tu ID de modelo
+MODEL_ID ='1qb0pRpbX9PrZK5yRRAXU_N_0x_gLsWzq' # Reemplaza con tu ID de modelo
 MODEL_PATH = 'trained_model_final.pth' # Reemplaza con la ruta de tu modelo
 
 # --- Definición del modelo U-Net 2D ---
